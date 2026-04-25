@@ -1,0 +1,736 @@
+import express from "express";
+import fs from "fs";
+import cors from "cors";
+import { ApiError } from "./utils/ApiError.js";
+
+// Custom environment loader
+const loadEnvironment = () => {
+  try {
+    const envFile = fs.readFileSync('./.env', 'utf8');
+    envFile.split('\n').forEach(line => {
+      const [key, ...values] = line.split('=');
+      const value = values.join('=').trim().replace(/^"(.*)"$/, '$1');
+      if (key && !key.startsWith('#')) {
+        process.env[key.trim()] = value;
+      }
+    });
+  } catch (error) {
+    console.warn('⚠️ No .env file found, using process environment');
+  }
+};
+loadEnvironment();
+
+const app = express();
+
+// ========================
+//      Configuration
+// ========================
+const config = {
+  rateLimit: {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per window
+    message: 'Too many requests, please try again later'
+  },
+  security: {
+    cors: {
+      allowedOrigins: new Set([
+        process.env.FRONTEND_URL || 'http://localhost:5173',
+        'https://prescription-frontend.vercel.app'
+      ])
+    },
+    headers: {
+      hsts: 'max-age=31536000; includeSubDomains'
+    }
+  },
+  server: {
+    port: process.env.PORT || 4500,
+    jsonLimit: '16kb'
+  }
+};
+
+// ========================
+//      Rate Limiter
+// ========================
+const requestStore = new Map();
+
+const rateLimiter = () => {
+  // Cleanup old entries every minute
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of requestStore) {
+      if (entry.expiresAt < now) requestStore.delete(ip);
+    }
+  }, 60 * 1000);
+
+  return (req, res, next) => {
+    const ip = req.ip || req.socket.remoteAddress;
+    const currentTime = Date.now();
+
+    if (!requestStore.has(ip)) {
+      requestStore.set(ip, {
+        count: 1,
+        expiresAt: currentTime + config.rateLimit.windowMs
+      });
+      return next();
+    }
+
+    const entry = requestStore.get(ip);
+    if (currentTime > entry.expiresAt) {
+      requestStore.set(ip, {
+        count: 1,
+        expiresAt: currentTime + config.rateLimit.windowMs
+      });
+      return next();
+    }
+
+    if (entry.count >= config.rateLimit.max) {
+      return next(new ApiError(429, config.rateLimit.message));
+    }
+
+    entry.count++;
+    next();
+  };
+};
+
+// ========================
+//      Core Middleware
+// ========================
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || config.security.cors.allowedOrigins.has(origin)) {
+      callback(null, true);
+    } else {
+      callback(new ApiError(403, 'Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
+app.use(express.json({ limit: config.server.jsonLimit }));
+app.use(express.urlencoded({ extended: true, limit: config.server.jsonLimit }));
+app.use(express.static('public'));
+
+// Security headers middleware
+app.use((req, res, next) => {
+  res.removeHeader('X-Powered-By');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Strict-Transport-Security', config.security.headers.hsts);
+  next();
+});
+
+// Apply rate limiter to all routes
+app.use(rateLimiter());
+
+// ========================
+//      Route Handling
+// ========================
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memoryUsage: process.memoryUsage()
+  });
+});
+
+// Base Route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Clinic Management System API',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    documentation: '/api-docs'
+  });
+});
+
+import patientRoutes from './routes/patientRoutes.js';
+import consultationRoutes from './routes/consultationRoutes.js';
+import medicineRoutes from './routes/medicineRoutes.js';
+import prescriptionRoutes from './routes/prescriptionRoutes.js';
+import conditionRoutes from './routes/conditionRoutes.js';
+import vitalRoutes from './routes/vitalRoutes.js';
+import symptomRoutes from './routes/symptomRoutes.js';
+import followupRoutes from './routes/followupRoutes.js'
+import testsRoutes from './routes/testRoutes.js'
+import examRoutes from './routes/neuroExamRoutes.js'
+import patientHistoryRoutes from "./routes/patientHistoryRoutes.js";
+import neuroOptionsRoutes from './routes/neuroOptionsRoutes.js';
+
+// Route Mounting
+app.use('/api/patients', patientRoutes);
+app.use('/api/consultations', consultationRoutes);
+app.use('/api/medicines', medicineRoutes);
+app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/conditions', conditionRoutes);
+app.use('/api/vitals', vitalRoutes);
+app.use('/api/followups', followupRoutes);
+app.use('/api/symptoms', symptomRoutes);
+app.use('/api/tests', testsRoutes);
+app.use('/api/examination', examRoutes);
+app.use("/api", patientHistoryRoutes);
+app.use('/api/neuro-options', neuroOptionsRoutes);
+
+// ========================
+//      Error Handling
+// ========================
+// 404 Handler
+app.use((req, res, next) => {
+  next(new ApiError(404, 'Route not found'));
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const errorResponse = {
+    success: false,
+    message: err.message,
+    ...(err.errors && { errors: err.errors })
+  };
+
+  if (!isProduction) {
+    errorResponse.stack = err.stack;
+    errorResponse.metadata = {
+      path: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  if (err instanceof ApiError) {
+    return res.status(err.statusCode).json(errorResponse);
+  }
+
+  console.error('⚠️ Unexpected error:', err);
+  res.status(500).json({
+    ...errorResponse,
+    message: isProduction ? 'Internal server error' : errorResponse.message
+  });
+});
+
+
+export default app;
+
+import { client } from "../models/db.js"; 
+
+// Schedule a new follow-up
+export const scheduleFollowUp = async (req, res) => {
+    try {
+        const { consultation_id } = req.params;
+        const { follow_up_date, notes } = req.body;
+
+        console.log("Received consultation_id:", consultation_id);
+        console.log("Received follow_up_date:", follow_up_date);
+
+        if (!follow_up_date) {
+            return res.status(400).json({ error: "Follow-up date is required" });
+        }
+
+        const result = await client.query(
+            `INSERT INTO follow_ups 
+             (consultation_id, follow_up_date, notes)
+             VALUES ($1, $2, $3) RETURNING *`,
+            [consultation_id, follow_up_date, notes]
+        );
+
+        res.status(201).json(result.rows[0]);
+    } catch (error) {
+        console.error("Database error:", error);
+        res.status(500).json({ error: "Something went wrong while scheduling follow-up" });
+    }
+};
+
+
+// Update an existing follow-up
+export const updateFollowUp = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { follow_up_date, notes, is_completed } = req.body;
+
+        if (is_completed !== undefined && typeof is_completed !== "boolean") {
+            return res.status(400).json({ error: "is_completed must be a boolean" });
+        }
+
+        const result = await client.query(
+            `UPDATE follow_ups SET
+             follow_up_date = $1, notes = $2, is_completed = $3
+             WHERE id = $4 RETURNING *`,
+            [follow_up_date, notes, is_completed, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Follow-up not found" });
+        }
+
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Something went wrong while updating follow-up" });
+    }
+};
+
+// Get all follow-ups for a specific patient
+export const getFollowUps = async (req, res) => {
+    try {
+        const { patient_id } = req.params;
+
+        const result = await client.query(`
+            SELECT f.* FROM follow_ups f
+            JOIN consultations c ON f.consultation_id = c.id
+            WHERE c.patient_id = $1
+            ORDER BY f.follow_up_date DESC
+        `, [patient_id]);
+
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Something went wrong while fetching follow-ups" });
+    }
+};
+
+// Get a single follow-up by ID
+export const getFollowUpById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await client.query(
+            `SELECT * FROM follow_ups WHERE id = $1`, [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Follow-up not found" });
+        }
+
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Something went wrong while fetching the follow-up" });
+    }
+};
+
+// Delete a follow-up
+export const deleteFollowUp = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await client.query(
+            `DELETE FROM follow_ups WHERE id = $1 RETURNING *`, [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Follow-up not found" });
+        }
+
+        res.status(200).json({ message: "Follow-up deleted successfully" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Something went wrong while deleting the follow-up" });
+    }
+};
+
+
+import express from "express";
+import fs from "fs";
+import cors from "cors";
+import { ApiError } from "./utils/ApiError.js";
+import { sendFollowUpReminders } from './controllers/followupController.js';
+
+// Custom environment loader with validation
+const loadEnvironment = () => {
+  try {
+    const envFile = fs.readFileSync('./.env', 'utf8');
+    envFile.split('\n').forEach(line => {
+      const [key, ...values] = line.split('=');
+      const value = values.join('=').trim().replace(/^"(.*)"$/, '$1');
+      if (key && !key.startsWith('#') && value) {
+        process.env[key.trim()] = value;
+      }
+    });
+    // Validate required env vars
+    if (!process.env.PORT) {
+      console.warn('⚠️ PORT not set, defaulting to 4500');
+    }
+  } catch (error) {
+    console.warn('⚠️ No .env file found, using process environment');
+  }
+};
+loadEnvironment();
+
+const app = express();
+
+// Configuration with defaults
+const config = {
+  rateLimit: {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // 100 requests per window
+    message: 'Too many requests, please try again later'
+  },
+  security: {
+    cors: {
+      allowedOrigins: new Set([
+        process.env.FRONTEND_URL || 'http://localhost:5173',
+        'https://prescription-frontend.vercel.app',
+        'https://clinical-web-app.vercel.app'
+      ])
+    },
+    headers: {
+      hsts: 'max-age=31536000; includeSubDomains'
+    }
+  },
+  server: {
+    port: process.env.PORT || 4500,
+    jsonLimit: '16kb'
+  }
+};
+
+// Rate Limiter with cleanup
+const requestStore = new Map();
+
+const rateLimiter = () => {
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, entry] of requestStore) {
+      if (entry.expiresAt < now) requestStore.delete(ip);
+    }
+  }, 60 * 1000);
+
+  return (req, res, next) => {
+    try {
+      const ip = req.ip || req.socket.remoteAddress;
+      const currentTime = Date.now();
+
+      const entry = requestStore.get(ip) || {
+        count: 0,
+        expiresAt: currentTime + config.rateLimit.windowMs
+      };
+
+      if (currentTime > entry.expiresAt) {
+        entry.count = 0;
+        entry.expiresAt = currentTime + config.rateLimit.windowMs;
+      }
+
+      if (entry.count >= config.rateLimit.max) {
+        throw new ApiError(429, config.rateLimit.message, {
+          retryAfter: Math.ceil((entry.expiresAt - currentTime) / 1000)
+        });
+      }
+
+      entry.count++;
+      requestStore.set(ip, entry);
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+};
+
+// Core Middleware
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || config.security.cors.allowedOrigins.has(origin)) {
+      callback(null, true);
+    } else {
+      callback(new ApiError(403, 'Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+app.use(express.json({ limit: config.server.jsonLimit }));
+app.use(express.urlencoded({ extended: true, limit: config.server.jsonLimit }));
+app.use(express.static('public'));
+
+// Security Headers
+app.use((req, res, next) => {
+  res.removeHeader('X-Powered-By');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Strict-Transport-Security', config.security.headers.hsts);
+  next();
+});
+
+app.use(rateLimiter());
+
+// Routes
+app.get('/health', (req, res, next) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memoryUsage: process.memoryUsage()
+      }
+    });
+  } catch (error) {
+    next(new ApiError(500, 'Health check failed', { error: error.message }));
+  }
+});
+
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      message: 'Clinic Management System API',
+      version: '1.0.0',
+      documentation: '/api-docs'
+    }
+  });
+});
+
+// Route Imports
+import patientRoutes from './routes/patientRoutes.js';
+import consultationRoutes from './routes/consultationRoutes.js';
+import medicineRoutes from './routes/medicineRoutes.js';
+import prescriptionRoutes from './routes/prescriptionRoutes.js';
+import conditionRoutes from './routes/conditionRoutes.js';
+import vitalRoutes from './routes/vitalRoutes.js';
+import symptomRoutes from './routes/symptomRoutes.js';
+import followupRoutes from './routes/followupRoutes.js';
+import testsRoutes from './routes/testRoutes.js';
+import examRoutes from './routes/neuroExamRoutes.js';
+import patientHistoryRoutes from './routes/patientHistoryRoutes.js';
+import neuroOptionsRoutes from './routes/neuroOptionsRoutes.js';
+import { configDotenv } from "dotenv";
+
+// Route Mounting with error wrapper
+const mountRoute = (path, router) => {
+  app.use(path, (req, res, next) => {
+    Promise.resolve(router(req, res, next)).catch(error => {
+      next(new ApiError(500, 'Route handler error', { path, error: error.message }));
+    });
+  });
+};
+
+mountRoute('/api/patients', patientRoutes);
+mountRoute('/api/consultations', consultationRoutes);
+mountRoute('/api/medicines', medicineRoutes);
+mountRoute('/api/prescriptions', prescriptionRoutes);
+mountRoute('/api/conditions', conditionRoutes);
+mountRoute('/api/vitals', vitalRoutes);
+mountRoute('/api/followups', followupRoutes);
+mountRoute('/api/symptoms', symptomRoutes);
+mountRoute('/api/tests', testsRoutes);
+mountRoute('/api/examination', examRoutes);
+mountRoute('/api', patientHistoryRoutes);
+mountRoute('/api/neuro-options', neuroOptionsRoutes);
+
+// Error Handling
+app.use((req, res, next) => {
+  next(new ApiError(404, 'Route not found', {
+    path: req.path,
+    method: req.method
+  }));
+});
+
+setInterval(() => {
+  const now = new Date();
+  if (now.getHours() === 0 && now.getMinutes() === 0) {
+    sendFollowUpReminders();
+  }
+}, 60 * 1000);
+
+app.use((error, req, res, next) => {
+  const statusCode = error instanceof ApiError ? error.statusCode : 500;
+  const response = {
+    success: false,
+    message: error.message || 'Internal server error',
+    ...(error.errors && { errors: error.errors })
+  };
+
+  // Log detailed error information
+  console.error('⚠️ Server Error:', {
+    statusCode,
+    message: error.message,
+    stack: error.stack,
+    path: req.path,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+
+  res.status(statusCode).json(response);
+});
+
+
+export default app;
+
+
+
+
+
+// ole app code
+
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import helmet from "helmet";
+import { pool } from "./models/db.js";
+import { ApiError } from "./utils/ApiError.js";
+import { asyncHandler } from "./utils/asyncHandler.js";
+import morgan from "morgan";
+
+// Load environment variables first
+dotenv.config();
+
+const app = express();
+
+// Enhanced configuration
+const config = {
+  server: {
+    port: parseInt(process.env.PORT, 10) || 4500,
+    env: process.env.NODE_ENV || "development",
+    requestLimit: "50kb"
+  },
+  security: {
+    cors: {
+      allowedOrigins: [
+        process.env.FRONTEND_URL,
+        "https://clinical-web-app.vercel.app",
+        "http://localhost:5173"
+      ]
+    },
+    rateLimit: {
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 500 // Limit each IP to 500 requests per windowMs
+    }
+  }
+};
+
+// Security middleware
+app.use(helmet());
+app.use(helmet.hsts({ maxAge: 31536000, includeSubDomains: true }));
+
+// Enhanced CORS configuration
+app.use(cors({
+  origin: config.security.cors.allowedOrigins,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+  optionsSuccessStatus: 204
+}));
+
+// Request logging
+if (config.server.env !== "test") {
+  app.use(morgan(config.server.env === "development" ? "dev" : "combined"));
+}
+
+// Body parsing middleware with limits
+app.use(express.json({ limit: config.server.requestLimit }));
+app.use(express.urlencoded({ extended: true, limit: config.server.requestLimit }));
+
+// Rate limiting
+import rateLimit from "express-rate-limit";
+app.use(rateLimit({
+  windowMs: config.security.rateLimit.windowMs,
+  max: config.security.rateLimit.max,
+  handler: (req, res) => {
+    throw new ApiError(429, "Too many requests, please try again later");
+  },
+  skip: (req) => config.server.env === "test"
+}));
+
+
+// Database health check endpoint
+app.get("/health", asyncHandler(async (req, res) => {
+  const timeoutPromise = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error("Database connection timeout")), 5000)
+  );
+
+  const dbCheck = await Promise.race([
+    pool.query("SELECT NOW()"),
+    timeoutPromise
+  ]);
+
+  res.status(200).json({
+    status: "OK",
+    timestamp: dbCheck.rows[0].now,
+    uptime: process.uptime(),
+    memoryUsage: process.memoryUsage()
+  });
+}));
+
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    data: { message: "Clinic Management System API", version: "1.0.0", endpoints: "/api-docs" },
+  });
+});
+
+// API routes
+import patientRoutes from "./routes/patientRoutes.js";
+import consultationRoutes from "./routes/consultationRoutes.js";
+import medicineRoutes from "./routes/medicineRoutes.js";
+import prescriptionRoutes from "./routes/prescriptionRoutes.js";
+import conditionRoutes from "./routes/conditionRoutes.js";
+import vitalRoutes from "./routes/vitalRoutes.js";
+import symptomRoutes from "./routes/symptomRoutes.js";
+import followupRoutes from "./routes/followupRoutes.js";
+import testsRoutes from "./routes/testRoutes.js";
+import examRoutes from "./routes/neuroExamRoutes.js";
+import patientHistoryRoutes from "./routes/patientHistoryRoutes.js";
+import neuroOptionsRoutes from "./routes/neuroOptionsRoutes.js";
+
+const mountRoute = (path, router) => {
+  try {
+    app.use(path, (req, res, next) => {
+      Promise.resolve(router(req, res, next)).catch((error) =>
+        next(new ApiError(500, "Route processing error", { path, details: error.message }))
+      );
+    });
+  } catch (error) {
+    console.error(`Failed to mount route ${path}:`, error);
+    throw error; // Let index.js handle this
+  }
+};
+
+[
+  ["/api/patients", patientRoutes],
+  ["/api/consultations", consultationRoutes],
+  ["/api/medicines", medicineRoutes],
+  ["/api/prescriptions", prescriptionRoutes],
+  ["/api/conditions", conditionRoutes],
+  ["/api/vitals", vitalRoutes],
+  ["/api/followups", followupRoutes],
+  ["/api/symptoms", symptomRoutes],
+  ["/api/tests", testsRoutes],
+  ["/api/examination", examRoutes],
+  ["/api", patientHistoryRoutes],
+  ["/api/neuro-options", neuroOptionsRoutes],
+].forEach(([path, router]) => mountRoute(path, router));
+
+// 404 handler
+app.use((req, res, next) => {
+  next(new ApiError(404, `Resource not found: ${req.method} ${req.path}`));
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  const message = config.server.env === "production" && statusCode === 500 
+    ? "Internal Server Error" 
+    : err.message;
+
+  // Log detailed error information
+  console.error({
+    error: {
+      message: err.message,
+      stack: config.server.env === "development" ? err.stack : undefined,
+      status: statusCode,
+      path: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    }
+  });
+
+  res.status(statusCode).json({
+    success: false,
+    message,
+    ...(config.server.env === "development" && { error: err })
+  });
+});
+
+export default app;

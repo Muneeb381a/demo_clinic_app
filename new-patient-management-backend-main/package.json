@@ -1,0 +1,51 @@
+{
+  "name": "patient_managements_system",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "seed": "node src/scripts/seed.js",
+    "setup": "node src/scripts/setup.js && node src/scripts/seed.js",
+    "lint": "node --check src/index.js src/app.js",
+    "audit": "npm audit --audit-level=high"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@sparticuz/chromium": "^133.0.0",
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.43.1",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.10.0",
+    "jsonwebtoken": "^9.0.3",
+    "jspdf": "^2.5.2",
+    "morgan": "^1.10.0",
+    "pdfjs": "^2.5.3",
+    "pdfkit": "^0.16.0",
+    "pg": "^8.13.3",
+    "puppeteer": "^24.6.0",
+    "puppeteer-core": "^24.6.0",
+    "response-time": "^2.3.3",
+    "twilio": "^5.5.1",
+    "uuid": "^11.1.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30.6",
+    "nodemon": "^3.1.9"
+  }
+}
