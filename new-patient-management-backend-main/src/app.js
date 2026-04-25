@@ -63,10 +63,11 @@ if (config.server.trustProxy) {
   app.set('trust proxy', 1);
 }
 
-// CORS — allow localhost (any port) + exact/wildcard matches from allowedOrigins
+// CORS — allow localhost, any *.vercel.app subdomain, plus custom origins from env
 const originAllowed = (origin) => {
   if (!origin) return true;
-  if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return true;
+  if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return true;
+  if (/^https:\/\/[^.]+\.vercel\.app$/.test(origin)) return true;
   return config.security.cors.allowedOrigins.some((pattern) =>
     new RegExp("^" + pattern.replace(/\./g, "\\.").replace(/\*/g, ".*") + "$").test(origin)
   );
