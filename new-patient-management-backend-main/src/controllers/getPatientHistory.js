@@ -295,7 +295,7 @@ export const getPatientHistory = async (req, res) => {
               'spo2_level', vs.spo2_level,
               'nihss_score', vs.nihss_score,
               'fall_assessment', vs.fall_assessment,
-              'recorded_at', vs.created_at
+              'recorded_at', vs.recorded_at
             )
           ) AS vital_signs
         FROM vital_signs vs
@@ -457,7 +457,7 @@ vital_signs_data AS (
                 'spo2_level', vs.spo2_level,
                 'nihss_score', vs.nihss_score,
                 'fall_assessment', vs.fall_assessment,  
-                'recorded_at', vs.created_at
+                'recorded_at', vs.recorded_at
             )
         ) AS vital_signs
     FROM vital_signs vs
@@ -1966,7 +1966,7 @@ LEFT JOIN follow_ups_data fud ON pd.consultation_id = fud.consultation_id;
 //                       'spo2_level', vs.spo2_level,
 //                       'nihss_score', vs.nihss_score,
 //                       'fall_assessment', vs.fall_assessment,  
-//                       'recorded_at', vs.created_at
+//                       'recorded_at', vs.recorded_at
 //                   )
 //               ) AS vital_signs
 //           FROM vital_signs vs
@@ -2654,7 +2654,7 @@ export const generatePrescriptionPDF = async (req, res) => {
                       'spo2_level', vs.spo2_level,
                       'nihss_score', vs.nihss_score,
                       'fall_assessment', vs.fall_assessment,  
-                      'recorded_at', vs.created_at
+                      'recorded_at', vs.recorded_at
                   )
               ) AS vital_signs
           FROM vital_signs vs
