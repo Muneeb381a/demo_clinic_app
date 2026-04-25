@@ -192,24 +192,20 @@ export const searchPatient = async (req, res) => {
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    // Count query for pagination metadata
-    const countResult = await pool.query(
-      `SELECT COUNT(*) FROM patients ${where}`,
-      params.slice(0, name ? params.length - 1 : params.length)
-    );
-    const total = parseInt(countResult.rows[0].count, 10);
-
+    // Single query: window function returns total alongside each row — one DB round-trip
     params.push(limit, offset);
     const dataResult = await pool.query(
-      `SELECT id, mobile, name FROM patients ${where} ORDER BY ${orderBy} LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      `SELECT id, mobile, name, COUNT(*) OVER() AS total_count
+       FROM patients ${where} ORDER BY ${orderBy} LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
+    const total = dataResult.rows.length > 0 ? parseInt(dataResult.rows[0].total_count, 10) : 0;
 
     let response;
     if (!dataResult.rows.length) {
       response = { success: true, exists: false, message: "No patients found", pagination: { total: 0, page, limit, pages: 0 } };
     } else {
-      const patients = dataResult.rows.map((p) => ({ ...p, name: p.name?.trim() || "Unknown" }));
+      const patients = dataResult.rows.map(({ total_count, ...p }) => ({ ...p, name: p.name?.trim() || "Unknown" }));
       response = {
         success: true,
         exists: true,

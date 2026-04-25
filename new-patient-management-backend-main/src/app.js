@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
-import { pool, closeDB } from "./models/db.js";
+import { pool, closeDB, ensureIndexes } from "./models/db.js";
 import { ApiError } from "./utils/ApiError.js";
 import { asyncHandler } from "./utils/asyncHandler.js";
 import morgan from "morgan";
@@ -176,6 +176,9 @@ import chatbotRoutes from "./routes/chatbotRoutes.js";
 import { followUpReminderHandler } from "./cron/followUpReminder.js";
 import { requireAuth } from "./middleware/auth.js";
 
+// Fire-and-forget: creates GIN/btree indexes on first cold start; no-op if they already exist
+ensureIndexes().catch((err) => logger.warn("ensureIndexes failed", { error: err.message }));
+
 app.get("/ping", async (req, res) => {
   try {
     await pool.query("SELECT 1");
@@ -188,8 +191,9 @@ app.get("/ping", async (req, res) => {
 // Cron endpoints protected by CRON_SECRET, not JWT
 app.get("/api/cron/follow-up-reminders", followUpReminderHandler);
 app.get("/api/cron/db-keepalive", async (req, res) => {
-  const secret = req.headers["x-cron-secret"] || req.query.secret;
-  if (secret !== process.env.CRON_SECRET) {
+  // Vercel Cron sends: Authorization: Bearer <CRON_SECRET>
+  const auth = req.headers["authorization"];
+  if (process.env.CRON_SECRET && auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: "Unauthorized" });
   }
   try {
