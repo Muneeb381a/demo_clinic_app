@@ -275,15 +275,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received - closing server');
-  server.close(async () => {
-    logger.info('Server closed');
-    await closeDB();
-    process.exit(0);
-  });
-});
-
-
 export default app;
