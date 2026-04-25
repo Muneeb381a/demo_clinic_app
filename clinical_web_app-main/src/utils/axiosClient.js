@@ -1,8 +1,9 @@
 import axios from "axios";
 
-// No baseURL — all /api requests go through Vite's proxy to localhost:4500
-// This avoids CORS entirely in dev, and in production the vercel.json rewrite handles it.
+// In dev: no baseURL, Vite proxy forwards /api → localhost:4500 (no CORS)
+// In prod: baseURL from env, direct calls to the deployed backend
 const apiClient = axios.create({
+  baseURL: import.meta.env.DEV ? "" : (import.meta.env.VITE_API_BASE_URL || ""),
   timeout: 15000,
   headers: { "Content-Type": "application/json" },
 });
