@@ -26,6 +26,7 @@ const config = {
   security: {
     cors: {
       allowedOrigins: process.env.ALLOWED_ORIGINS?.split(",") || [
+        "https://demo-clinic-app-dp7h.vercel.app",
         "https://clinical-web-app.vercel.app",
         "http://localhost:5173",
         "http://localhost:5174"
@@ -62,16 +63,18 @@ if (config.server.trustProxy) {
   app.set('trust proxy', 1);
 }
 
-// CORS configuration — allow any localhost port in dev; restrict to allowedOrigins in prod
+// CORS — allow localhost (any port) + exact/wildcard matches from allowedOrigins
+const originAllowed = (origin) => {
+  if (!origin) return true;
+  if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return true;
+  return config.security.cors.allowedOrigins.some((pattern) =>
+    new RegExp("^" + pattern.replace(/\./g, "\\.").replace(/\*/g, ".*") + "$").test(origin)
+  );
+};
+
 app.use(cors({
-  origin: (origin, callback) => {
-    const allowed = config.security.cors.allowedOrigins;
-    if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin) || allowed.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: (origin, callback) =>
+    originAllowed(origin) ? callback(null, true) : callback(new Error("Not allowed by CORS")),
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
