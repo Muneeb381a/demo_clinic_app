@@ -79,6 +79,12 @@ const DashboardPage = () => {
 
   const handleRefresh = () => dispatch(fetchDashboardStats(true));
 
+  const handleLogout = () => {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
+    window.location.reload();
+  };
+
   const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
   const toggleDark = () => {
     const next = !darkMode;
@@ -131,6 +137,15 @@ const DashboardPage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 Search Patients
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-white/20 hover:bg-red-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
+                </svg>
+                Logout
               </button>
             </div>
           </div>
