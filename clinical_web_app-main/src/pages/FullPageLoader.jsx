@@ -107,7 +107,7 @@ const FullPageLoader = ({ isLoading }) => {
       </div>
 
       {/* CSS for your loader */}
-      <style jsx>{`
+      <style>{`
         .loader {
           width: 60px;
           aspect-ratio: 1;
