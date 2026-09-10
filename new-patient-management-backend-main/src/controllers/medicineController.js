@@ -7,7 +7,8 @@ const MEDICINE_SOFT_TTL = 3600;   // refresh in background every 1 hour
 
 // Fetch all medicines from DB (used by SWR fetchFn)
 const fetchAllMedicines = async () => {
-  const result = await pool.query(`SELECT * FROM medicines ORDER BY brand_name ASC`);
+  // Full catalogue for client-side autocomplete; hard cap as a safety valve.
+  const result = await pool.query(`SELECT * FROM medicines ORDER BY brand_name ASC LIMIT 10000`);
   return result.rows.map(med => ({
     ...med,
     urdu_name: med.urdu_name || 'نام دستیاب نہیں',
@@ -128,9 +129,13 @@ export const searchMedicines = async (req, res) => {
     if (!query) {
       return res.status(400).json({ error: "Search query is required" });
     }
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "50", 10) || 50, 1), 100);
     const result = await pool.query(
-      `SELECT * FROM medicines WHERE brand_name ILIKE $1 OR generic_name ILIKE $1`,
-      [`%${query}%`]
+      `SELECT * FROM medicines
+        WHERE brand_name ILIKE $1 OR generic_name ILIKE $1
+        ORDER BY brand_name ASC
+        LIMIT $2`,
+      [`%${query}%`, limit]
     );
     res.status(200).json(result.rows);
   } catch (error) {
