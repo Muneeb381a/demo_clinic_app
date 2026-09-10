@@ -108,4 +108,18 @@ run("per-doctor isolation (integration)", () => {
       .set("Authorization", `Bearer ${as(docB)}`);
     expect(res.status).toBe(404);
   });
+
+  it("the print / pdf / detail views render for the owner and 404 for others", async () => {
+    const urls = [
+      `/api/patients/${patientA}/consultations/${consultA}/print`,
+      `/api/patients/${patientA}/consultations/${consultA}/pdf`,
+      `/api/patients/${patientA}/consultations/${consultA}`,
+    ];
+    for (const url of urls) {
+      const mine = await request(app).get(url).set("Authorization", `Bearer ${as(docA)}`);
+      expect(mine.status).toBe(200); // regression guard: these used to 500 on a bad created_at column
+      const theirs = await request(app).get(url).set("Authorization", `Bearer ${as(docB)}`);
+      expect(theirs.status).toBe(404);
+    }
+  });
 });

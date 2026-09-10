@@ -315,8 +315,7 @@ followup_data AS (
     JSON_AGG(
       JSON_BUILD_OBJECT(
         'follow_up_date', follow_up_date,
-        'notes', notes,
-        'created_at', created_at
+        'notes', notes
       )
     ) AS follow_ups
   FROM follow_ups

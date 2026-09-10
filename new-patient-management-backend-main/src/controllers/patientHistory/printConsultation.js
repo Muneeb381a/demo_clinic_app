@@ -134,8 +134,7 @@ follow_ups_data AS (
     consultation_id,
     JSONB_AGG(DISTINCT JSONB_BUILD_OBJECT( -- Changed to JSONB_AGG
       'follow_up_date', follow_up_date,
-      'notes', notes,
-      'created_at', created_at
+      'notes', notes
     )) AS follow_ups
   FROM follow_ups
   WHERE consultation_id = $2
