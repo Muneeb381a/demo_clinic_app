@@ -186,23 +186,26 @@ async function seedTests(client) {
 
 async function seedDemoDoctor(client) {
   const hash = await bcrypt.hash("demo1234", 12);
-  await client.query(
+  const { rows } = await client.query(
     `INSERT INTO auth_users (name, email, password_hash, salt, role, specialization)
-     VALUES ($1,$2,$3,'',$4,$5) ON CONFLICT (email) DO NOTHING`,
+     VALUES ($1,$2,$3,'',$4,$5)
+     ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
+     RETURNING id`,
     ["Dr. Abdul Rauf", "demo@clinic.com", hash, "doctor", "Neurology"]
   );
   console.log("  ✓ Demo doctor  →  email: demo@clinic.com  |  password: demo1234");
+  return rows[0].id;
 }
 
-async function seedPatients(client) {
+async function seedPatients(client, doctorId) {
   const rows = [];
   for (const p of PATIENTS) {
     const mr_no = `MR-${uuidv4()}`;
     const r = await client.query(
-      `INSERT INTO patients (mobile, mr_no, name, age, gender, weight, height, checkup_date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,CURRENT_DATE - (RANDOM()*60)::int)
+      `INSERT INTO patients (mobile, mr_no, name, age, gender, weight, height, doctor_id, checkup_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_DATE - (RANDOM()*60)::int)
        ON CONFLICT DO NOTHING RETURNING id`,
-      [p.mobile, mr_no, p.name, p.age, p.gender, p.weight, p.height]
+      [p.mobile, mr_no, p.name, p.age, p.gender, p.weight, p.height, doctorId]
     );
     if (r.rows.length) rows.push({ id: r.rows[0].id, ...p });
   }
@@ -210,7 +213,7 @@ async function seedPatients(client) {
   return rows;
 }
 
-async function seedConsultations(client, patients) {
+async function seedConsultations(client, patients, doctorId) {
   // Look up a few symptom and medicine IDs for realistic data
   const { rows: symRows } = await client.query(
     `SELECT id, name FROM symptoms WHERE name = ANY($1::text[]) ORDER BY id`,
@@ -241,8 +244,8 @@ async function seedConsultations(client, patients) {
 
       // 1. Consultation
       const { rows: [cons] } = await client.query(
-        `INSERT INTO consultations (patient_id, doctor_name, visit_date) VALUES ($1,$2,$3) RETURNING id`,
-        [patient.id, doctor, visitDate]
+        `INSERT INTO consultations (patient_id, doctor_name, visit_date, created_by) VALUES ($1,$2,$3,$4) RETURNING id`,
+        [patient.id, doctor, visitDate, doctorId]
       );
       const cId = cons.id;
 
@@ -632,9 +635,9 @@ async function seed() {
     await seedMedicines(client);
     await seedSymptoms(client);
     await seedTests(client);
-    await seedDemoDoctor(client);
-    const patients = await seedPatients(client);
-    await seedConsultations(client, patients);
+    const doctorId = await seedDemoDoctor(client);
+    const patients = await seedPatients(client, doctorId);
+    await seedConsultations(client, patients, doctorId);
     await seedNeuroOptions(client);
     await seedDiseaseGraph(client);
     await createDbObjects(client);
