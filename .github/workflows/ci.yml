@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (build + lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clinical_web_app-main
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: clinical_web_app-main/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  backend:
+    name: Backend (lint + audit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: new-patient-management-backend-main
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: new-patient-management-backend-main/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint (syntax check)
+        run: npm run lint
+
+      - name: Security audit (high+)
+        run: npm audit --audit-level=high
+        continue-on-error: true
