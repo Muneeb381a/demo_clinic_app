@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import compression from "compression";
 import { pool, closeDB } from "./models/db.js";
@@ -119,6 +120,9 @@ app.use(express.urlencoded({
   extended: true,
   limit: config.server.requestLimit
 }));
+
+// Parse the refresh-token cookie (auth flow only).
+app.use(cookieParser());
 
 // Enhanced health check with PostgreSQL
 app.get("/health", asyncHandler(async (req, res) => {

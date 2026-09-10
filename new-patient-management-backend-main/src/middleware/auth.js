@@ -55,3 +55,9 @@ export const requireRole = (...roles) => (req, res, next) => {
  */
 export const signToken = (payload, expiresIn = "24h") =>
   jwt.sign(payload, JWT_SECRET, { expiresIn });
+
+// Short-lived access token. Sessions are kept alive by the rotating refresh
+// token (httpOnly cookie) via POST /api/auth/refresh.
+export const ACCESS_TTL = "15m";
+export const signAccessToken = (user) =>
+  jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: ACCESS_TTL });

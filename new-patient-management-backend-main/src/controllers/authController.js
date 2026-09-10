@@ -1,13 +1,35 @@
 // src/controllers/authController.js
 import { pool } from "../models/db.js";
-import { signToken } from "../middleware/auth.js";
+import { signAccessToken } from "../middleware/auth.js";
+import {
+  REFRESH_COOKIE,
+  refreshCookieOptions,
+  issueRefreshToken,
+  rotateRefreshToken,
+  revokeRefreshToken,
+} from "../services/refreshTokens.js";
 import bcrypt from "bcryptjs";
 
 const BCRYPT_ROUNDS = 12;
 
+// Only pass through something that will parse as INET; anything else -> null.
+const asInet = (v) =>
+  typeof v === "string" && /^[0-9a-fA-F:.]+$/.test(v) && v.length <= 45 ? v : null;
+
+const clientMeta = (req) => ({
+  userAgent: req.headers["user-agent"],
+  ip: asInet(req.ip),
+});
+
+// Sets the rotating refresh cookie and returns the short-lived access token.
+const startSession = async (req, res, user) => {
+  const { raw } = await issueRefreshToken(user.id, clientMeta(req));
+  res.cookie(REFRESH_COOKIE, raw, refreshCookieOptions());
+  return signAccessToken(user);
+};
+
 /**
  * POST /api/auth/register
- * Creates a new doctor account.
  * Body: { name, email, password, specialization }
  */
 export const register = async (req, res) => {
@@ -35,9 +57,9 @@ export const register = async (req, res) => {
     );
 
     const user = result.rows[0];
-    const token = signToken({ id: user.id, email: user.email, role: user.role });
+    const accessToken = await startSession(req, res, user);
 
-    res.status(201).json({ success: true, token, user });
+    res.status(201).json({ success: true, accessToken, user });
   } catch (error) {
     console.error("register error:", error.message);
     res.status(500).json({ success: false, message: "Registration failed" });
@@ -71,16 +93,56 @@ export const login = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
-    const token = signToken({ id: user.id, email: user.email, role: user.role });
-    res.json({
-      success: true,
-      token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
-    });
+    const publicUser = { id: user.id, name: user.name, email: user.email, role: user.role };
+    const accessToken = await startSession(req, res, publicUser);
+    res.json({ success: true, accessToken, user: publicUser });
   } catch (error) {
     console.error("login error:", error.message);
     res.status(500).json({ success: false, message: "Login failed" });
   }
+};
+
+/**
+ * POST /api/auth/refresh
+ * Reads the refresh cookie, rotates it, returns a fresh access token.
+ */
+export const refresh = async (req, res) => {
+  const raw = req.cookies?.[REFRESH_COOKIE];
+  try {
+    const { userId, raw: nextRaw } = await rotateRefreshToken(raw, clientMeta(req));
+
+    const { rows } = await pool.query(
+      "SELECT id, name, email, role FROM auth_users WHERE id = $1",
+      [userId]
+    );
+    if (rows.length === 0) {
+      res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions(), maxAge: undefined });
+      return res.status(401).json({ success: false, message: "Session invalid" });
+    }
+
+    res.cookie(REFRESH_COOKIE, nextRaw, refreshCookieOptions());
+    res.json({ success: true, accessToken: signAccessToken(rows[0]), user: rows[0] });
+  } catch (err) {
+    res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions(), maxAge: undefined });
+    const message = err.code === "reused"
+      ? "Session revoked — please sign in again"
+      : "Session expired";
+    return res.status(401).json({ success: false, message });
+  }
+};
+
+/**
+ * POST /api/auth/logout
+ * Revokes the current refresh token and clears the cookie.
+ */
+export const logout = async (req, res) => {
+  try {
+    await revokeRefreshToken(req.cookies?.[REFRESH_COOKIE]);
+  } catch {
+    // best-effort
+  }
+  res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions(), maxAge: undefined });
+  res.json({ success: true });
 };
 
 /**
