@@ -65,3 +65,45 @@ jobs:
       - name: Security audit (high+)
         run: npm audit --audit-level=high
         continue-on-error: true
+
+  migrations:
+    name: Migrations (fresh build + idempotency)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: new-patient-management-backend-main
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pmtest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/pmtest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: new-patient-management-backend-main/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Apply migrations to an empty database
+        run: npm run migrate
+
+      - name: Re-run — migrations must be idempotent (no pending, no error)
+        run: npm run migrate
+
+      - name: Seed must apply against the migrated schema
+        run: npm run seed
