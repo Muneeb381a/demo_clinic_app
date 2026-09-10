@@ -8,6 +8,8 @@ import { pool, closeDB } from "./models/db.js";
 import { ApiError } from "./utils/ApiError.js";
 import { asyncHandler } from "./utils/asyncHandler.js";
 import rateLimit from "express-rate-limit";
+import swaggerUi from "swagger-ui-express";
+import { openapiSpec } from "./docs/openapi.js";
 import { logger } from "./lib/logger.js";
 import { requestContext } from "./middleware/requestContext.js";
 import { initSentry, captureError } from "./lib/observability.js";
@@ -152,6 +154,25 @@ app.get("/", (req, res) => {
   });
 });
 
+// API reference (core contract). Public — documentation only.
+app.get("/api-docs.json", (req, res) => res.json(openapiSpec));
+// Swagger UI ships inline styles/scripts; relax CSP for this path only.
+app.use(
+  "/api-docs",
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
+    },
+  }),
+  swaggerUi.serve,
+  swaggerUi.setup(openapiSpec, { customSiteTitle: "Clinic API" })
+);
+
 
 // API routes
 import authRoutes from "./routes/authRoutes.js";
@@ -172,6 +193,7 @@ import suggestionRoutes from "./routes/suggestionRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
 import { followUpReminderHandler } from "./cron/followUpReminder.js";
 import { requireAuth } from "./middleware/auth.js";
+import { audit } from "./middleware/audit.js";
 
 app.get("/ping", async (req, res) => {
   try {
@@ -212,6 +234,9 @@ app.use("/api/auth", authRoutes);
 
 // ── Protect everything below this line ─────────────────────────────────────
 app.use(requireAuth);
+
+// Append-only access/change trail for authenticated requests
+app.use(audit);
 
 // ── Protected routes ────────────────────────────────────────────────────────
 app.use("/api/patients", patientRoutes);

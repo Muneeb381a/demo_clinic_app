@@ -46,8 +46,8 @@ export const createPatient = async (req, res) => {
 // ---------------------------------------------------------------------------
 export const getPatients = async (req, res) => {
   try {
-    const limit  = Math.min(parseInt(req.query.limit  || "500", 10), 1000);
-    const offset = Math.max(parseInt(req.query.offset || "0",   10), 0);
+    const limit  = Math.min(Math.max(parseInt(req.query.limit || "100", 10) || 100, 1), 1000);
+    const offset = Math.max(parseInt(req.query.offset || "0", 10) || 0, 0);
     const cacheKey = `patients:list:${ns(req.user)}:${limit}:${offset}`;
     const scoped = !isAdmin(req.user);
 

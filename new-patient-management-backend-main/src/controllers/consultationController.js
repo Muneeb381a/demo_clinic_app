@@ -82,6 +82,14 @@ export const createConsultation = async (req, res) => {
 export const getAllConsultations = async (req, res) => {
   try {
     const scoped = !isAdmin(req.user);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "50", 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset || "0", 10) || 0, 0);
+
+    const params = scoped ? [req.user.id, limit, offset] : [limit, offset];
+    const where = scoped ? "WHERE p.doctor_id = $1" : "";
+    const lim = scoped ? "$2" : "$1";
+    const off = scoped ? "$3" : "$2";
+
     // Single query with aggregated symptoms and vitals — no N+1
     const result = await pool.query(`
       SELECT
@@ -97,10 +105,11 @@ export const getAllConsultations = async (req, res) => {
       LEFT JOIN consultation_symptoms cs ON c.id = cs.consultation_id
       LEFT JOIN symptoms s ON cs.symptom_id = s.id
       LEFT JOIN vital_signs vs ON c.id = vs.consultation_id
-      ${scoped ? "WHERE p.doctor_id = $1" : ""}
+      ${where}
       GROUP BY c.id
       ORDER BY c.id DESC
-    `, scoped ? [req.user.id] : []);
+      LIMIT ${lim} OFFSET ${off}
+    `, params);
 
     res.json(result.rows);
   } catch (error) {
