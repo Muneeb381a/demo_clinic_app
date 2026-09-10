@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import apiClient from "../utils/axiosClient";
+import { login } from "../utils/auth";
 
 const LoginPage = ({ onLogin }) => {
   const [email, setEmail] = useState("");
@@ -12,10 +12,7 @@ const LoginPage = ({ onLogin }) => {
     setError("");
     setLoading(true);
     try {
-      const res = await apiClient.post("/api/auth/login", { email, password });
-      const { token, user } = res.data;
-      localStorage.setItem("auth_token", token);
-      localStorage.setItem("auth_user", JSON.stringify(user));
+      await login(email, password);
       onLogin?.();
     } catch (err) {
       setError(err.response?.data?.message || "Invalid email or password");
