@@ -8,6 +8,8 @@ import { pool, closeDB } from "./models/db.js";
 import { ApiError } from "./utils/ApiError.js";
 import { asyncHandler } from "./utils/asyncHandler.js";
 import rateLimit from "express-rate-limit";
+import swaggerUi from "swagger-ui-express";
+import { openapiSpec } from "./docs/openapi.js";
 import { logger } from "./lib/logger.js";
 import { requestContext } from "./middleware/requestContext.js";
 import { initSentry, captureError } from "./lib/observability.js";
@@ -151,6 +153,25 @@ app.get("/", (req, res) => {
     data: { message: "Clinic Management System API", version: "1.0.0", endpoints: "/api-docs" },
   });
 });
+
+// API reference (core contract). Public — documentation only.
+app.get("/api-docs.json", (req, res) => res.json(openapiSpec));
+// Swagger UI ships inline styles/scripts; relax CSP for this path only.
+app.use(
+  "/api-docs",
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
+    },
+  }),
+  swaggerUi.serve,
+  swaggerUi.setup(openapiSpec, { customSiteTitle: "Clinic API" })
+);
 
 
 // API routes
