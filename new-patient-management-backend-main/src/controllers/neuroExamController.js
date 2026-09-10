@@ -1,11 +1,27 @@
 import { pool } from "../models/db.js";
+import { isAdmin, patientOwned, consultationOwned } from "../middleware/scope.js";
+
+// neurological_exams rows are owned through their patient.
+const examOwned = async (id, user) => {
+  const sql = isAdmin(user)
+    ? "SELECT 1 FROM neurological_exams WHERE id = $1"
+    : `SELECT 1 FROM neurological_exams ne JOIN patients p ON p.id = ne.patient_id
+        WHERE ne.id = $1 AND p.doctor_id = $2`;
+  const { rowCount } = await pool.query(sql, isAdmin(user) ? [id] : [id, user.id]);
+  return rowCount > 0;
+};
+
   // Modified createExam controller
   export const createExam = async (req, res) => {
     try {
       const { patient_id, consultation_id } = req.body;
-  
+
       if (!patient_id || !consultation_id) {
         return res.status(400).json({ success: false, message: "Invalid patient and consultation ID" });
+      }
+
+      if (!(await consultationOwned(consultation_id, req.user))) {
+        return res.status(404).json({ success: false, message: "Consultation not found" });
       }
   
       // Only check for patient_id and consultation_id as required
@@ -119,6 +135,9 @@ import { pool } from "../models/db.js";
 export const getExamById = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!(await examOwned(id, req.user))) {
+      return res.status(404).json({ success: false, message: "Exam not found" });
+    }
     const { rows, rowCount } = await pool.query(
       "SELECT * FROM neurological_exams WHERE id = $1",
       [id]
@@ -150,6 +169,10 @@ export const updateExam = async (req, res) => {
       return res
         .status(400)
         .json({ success: false, message: "No fields to update" });
+    }
+
+    if (!(await examOwned(id, req.user))) {
+      return res.status(404).json({ success: false, message: "Exam not found" });
     }
 
     // Sanitize and validate ENUM fields
@@ -197,6 +220,9 @@ export const updateExam = async (req, res) => {
 export const deleteExam = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!(await examOwned(id, req.user))) {
+      return res.status(404).json({ success: false, message: "Exam not found" });
+    }
     const { rowCount } = await pool.query(
       "DELETE FROM neurological_exams WHERE id = $1",
       [id]
@@ -224,6 +250,9 @@ export const deleteExam = async (req, res) => {
 export const listExamsByConsultation = async (req, res) => {
   try {
     const { consultationId } = req.params;
+    if (!(await consultationOwned(consultationId, req.user))) {
+      return res.status(404).json({ success: false, message: "Consultation not found" });
+    }
     const { rows } = await pool.query(
       "SELECT * FROM neurological_exams WHERE consultation_id = $1 ORDER BY created_at DESC",
       [consultationId]
@@ -244,6 +273,10 @@ export const listExamsByConsultation = async (req, res) => {
 export const getExamsByPatient = async (req, res) => {
   try {
     const { patientId } = req.params;
+
+    if (!(await patientOwned(patientId, req.user))) {
+      return res.status(404).json({ success: false, message: "No exams found for this patient" });
+    }
 
     const { rows } = await pool.query(
       "SELECT * FROM neurological_exams WHERE patient_id = $1",

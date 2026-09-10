@@ -6,10 +6,15 @@
 
 import jwt from "jsonwebtoken";
 
+// Fail fast in every environment — no insecure fallback secret.
+// Set JWT_SECRET in .env (see .env.example) for local dev too.
 const JWT_SECRET = process.env.JWT_SECRET;
 
-if (!JWT_SECRET && process.env.NODE_ENV === "production") {
-  throw new Error("JWT_SECRET environment variable is required in production");
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  throw new Error(
+    "JWT_SECRET is required and must be at least 32 characters. " +
+      "Generate one with: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\""
+  );
 }
 
 /**
@@ -24,7 +29,7 @@ export const requireAuth = (req, res, next) => {
 
   const token = header.slice(7);
   try {
-    req.user = jwt.verify(token, JWT_SECRET || "dev-secret-change-in-production");
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
   } catch (err) {
     const message = err.name === "TokenExpiredError" ? "Token expired" : "Invalid token";
@@ -49,4 +54,10 @@ export const requireRole = (...roles) => (req, res, next) => {
  * @param {string} expiresIn - e.g. '24h', '7d'
  */
 export const signToken = (payload, expiresIn = "24h") =>
-  jwt.sign(payload, JWT_SECRET || "dev-secret-change-in-production", { expiresIn });
+  jwt.sign(payload, JWT_SECRET, { expiresIn });
+
+// Short-lived access token. Sessions are kept alive by the rotating refresh
+// token (httpOnly cookie) via POST /api/auth/refresh.
+export const ACCESS_TTL = "15m";
+export const signAccessToken = (user) =>
+  jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: ACCESS_TTL });

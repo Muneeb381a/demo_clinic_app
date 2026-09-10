@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { fetchDashboardStats, selectDashboard } from "../store/slices/dashboardSlice";
+import { logout as logoutSession } from "../utils/auth";
 
 // ── Horizontal bar chart for analytics ────────────────────────────────────────
 const HBarChart = ({ data, color }) => {
@@ -79,9 +80,8 @@ const DashboardPage = () => {
 
   const handleRefresh = () => dispatch(fetchDashboardStats(true));
 
-  const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
+  const handleLogout = async () => {
+    await logoutSession();
     window.location.reload();
   };
 

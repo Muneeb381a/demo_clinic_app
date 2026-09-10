@@ -1,4 +1,5 @@
 import { pool } from "../models/db.js";
+import { isAdmin, patientOwned, consultationOwned } from "../middleware/scope.js";
 
 // export const createPrescription = async (req, res) => {
 //     try {
@@ -217,11 +218,15 @@ export const createPrescription = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // Single query: get patient_id and validate consultation
-    const consultationQuery = await client.query(
-      "SELECT patient_id FROM consultations WHERE id = $1",
-      [consultation_id]
-    );
+    // Single query: get patient_id and validate consultation is owned by the caller
+    const consultationQuery = isAdmin(req.user)
+      ? await client.query("SELECT patient_id FROM consultations WHERE id = $1", [consultation_id])
+      : await client.query(
+          `SELECT c.patient_id FROM consultations c
+             JOIN patients p ON p.id = c.patient_id
+            WHERE c.id = $1 AND p.doctor_id = $2`,
+          [consultation_id, req.user.id]
+        );
     if (consultationQuery.rowCount === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Consultation not found" });
@@ -288,8 +293,11 @@ export const createPrescription = async (req, res) => {
 export const getPrintablePrescription = async (req, res) => {
   try {
     const { consultation_id } = req.params;
+    if (!(await consultationOwned(consultation_id, req.user))) {
+      return res.status(404).json({ error: "Consultation not found" });
+    }
     const result = await pool.query(
-      `SELECT p.*, m.brand_name, m.urdu_name, m.form, m.strength 
+      `SELECT p.*, m.brand_name, m.urdu_name, m.form, m.strength
              FROM prescriptions p
              JOIN medicines m ON p.medicine_id = m.id
              WHERE p.consultation_id = $1`,
@@ -305,8 +313,11 @@ export const getPrintablePrescription = async (req, res) => {
 export const getPrescriptionsByPatient = async (req, res) => {
   try {
     const { patient_id } = req.params;
+    if (!(await patientOwned(patient_id, req.user))) {
+      return res.status(404).json({ message: "No prescriptions found for this patient." });
+    }
     const result = await pool.query(
-      `SELECT p.*, m.brand_name, m.urdu_name, m.form, m.strength 
+      `SELECT p.*, m.brand_name, m.urdu_name, m.form, m.strength
              FROM prescriptions p
              JOIN medicines m ON p.medicine_id = m.id
              WHERE p.patient_id = $1`,
@@ -328,8 +339,11 @@ export const getPrescriptionsByPatient = async (req, res) => {
 export const getPrescriptionsByConsultationId = async (req, res) => {
   try {
     const { consultation_id } = req.params;
+    if (!(await consultationOwned(consultation_id, req.user))) {
+      return res.status(404).json({ message: "No prescriptions found for this consultation." });
+    }
     const result = await pool.query(
-      `SELECT p.*, m.brand_name, m.urdu_name, m.form, m.strength 
+      `SELECT p.*, m.brand_name, m.urdu_name, m.form, m.strength
              FROM prescriptions p
              JOIN medicines m ON p.medicine_id = m.id
              WHERE p.consultation_id = $1`,

@@ -9,11 +9,15 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "db:push": "drizzle-kit push",
+    "migrate": "node src/db/migrate.js",
+    "migrate:status": "node src/db/migrate.js --status",
+    "migrate:baseline": "node src/db/migrate.js --baseline",
     "db:studio": "drizzle-kit studio",
     "seed": "node src/scripts/seed.js",
-    "setup": "node src/scripts/setup.js && node src/scripts/seed.js",
-    "lint": "node --check src/index.js src/app.js",
+    "setup": "npm run migrate && npm run seed",
+    "lint": "node --check src/index.js src/app.js src/db/migrate.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "audit": "npm audit --audit-level=high"
   },
   "keywords": [],
@@ -21,9 +25,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@sentry/node": "^9.47.1",
     "@sparticuz/chromium": "^133.0.0",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.43.1",
@@ -46,6 +52,8 @@
   },
   "devDependencies": {
     "drizzle-kit": "^0.30.6",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "supertest": "^7.2.2",
+    "vitest": "^2.1.9"
   }
 }

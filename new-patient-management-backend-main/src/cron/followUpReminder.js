@@ -7,7 +7,7 @@
 // The route is protected by CRON_SECRET to prevent public access.
 
 import { pool } from "../models/db.js";
-import { logger } from "../../logger.js";
+import { logger } from "../lib/logger.js";
 
 const urduDate = (date) => {
   const urduMonths = ["جنوری", "فروری", "مارچ", "اپریل", "مئی", "جون", "جولائی", "اگست", "ستمبر", "اکتوبر", "نومبر", "دسمبر"];

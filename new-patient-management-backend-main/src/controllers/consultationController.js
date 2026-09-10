@@ -1,4 +1,5 @@
 import { pool } from "../models/db.js";
+import { isAdmin, patientOwned, consultationOwned } from "../middleware/scope.js";
 
 // export const createConsultation = async (req, res) => {
 //   try {
@@ -37,25 +38,28 @@ export const createConsultation = async (req, res) => {
     });
   }
 
+  const parsedPatientId = safeParseInt(patient_id);
+  if (parsedPatientId === null) {
+    return res.status(400).json({ error: "Bad Request", details: "Invalid patient_id" });
+  }
+  if (!(await patientOwned(parsedPatientId, req.user))) {
+    return res.status(404).json({ error: "Patient not found" });
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
     // Sanitize and prepare input
     const sanitizedDoctorName = sanitizeString(doctor_name);
-    const parsedPatientId = safeParseInt(patient_id);
     const sanitizedVisitDate = visit_date ? sanitizeString(visit_date) : new Date().toISOString();
-
-    if (parsedPatientId === null) {
-      throw new Error("Invalid patient_id: must be a valid integer");
-    }
 
     // Insert consultation (diagnosis/notes live in neurological_exams, not here)
     const result = await client.query(
       `INSERT INTO consultations
-       (patient_id, doctor_name, visit_date)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [parsedPatientId, sanitizedDoctorName, sanitizedVisitDate]
+       (patient_id, doctor_name, visit_date, created_by)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [parsedPatientId, sanitizedDoctorName, sanitizedVisitDate, req.user.id]
     );
 
     await client.query("COMMIT");
@@ -77,6 +81,7 @@ export const createConsultation = async (req, res) => {
 };
 export const getAllConsultations = async (req, res) => {
   try {
+    const scoped = !isAdmin(req.user);
     // Single query with aggregated symptoms and vitals — no N+1
     const result = await pool.query(`
       SELECT
@@ -88,12 +93,14 @@ export const getAllConsultations = async (req, res) => {
           JSON_AGG(DISTINCT vs.*) FILTER (WHERE vs.id IS NOT NULL), '[]'
         ) AS vitals
       FROM consultations c
+      JOIN patients p ON p.id = c.patient_id
       LEFT JOIN consultation_symptoms cs ON c.id = cs.consultation_id
       LEFT JOIN symptoms s ON cs.symptom_id = s.id
       LEFT JOIN vital_signs vs ON c.id = vs.consultation_id
+      ${scoped ? "WHERE p.doctor_id = $1" : ""}
       GROUP BY c.id
       ORDER BY c.id DESC
-    `);
+    `, scoped ? [req.user.id] : []);
 
     res.json(result.rows);
   } catch (error) {
@@ -108,10 +115,13 @@ export const addConsultationSymptoms = async (req, res) => {
     if (!patient_id) {
       return res.status(400).json({ error: "Patient ID is required" });
     }
+    if (!(await patientOwned(patient_id, req.user))) {
+      return res.status(404).json({ error: "Patient not found" });
+    }
 
     const result = await pool.query(
-      "INSERT INTO consultations (patient_id, doctor_name) VALUES ($1, $2) RETURNING *",
-      [patient_id, doctor_name || "Dr. Unknown"] // Provide a default value if missing
+      "INSERT INTO consultations (patient_id, doctor_name, created_by) VALUES ($1, $2, $3) RETURNING *",
+      [patient_id, doctor_name || "Dr. Unknown", req.user.id]
     );
 
     res.status(201).json(result.rows[0]);
@@ -126,6 +136,9 @@ export const getConsultationsByPatient = async (req, res) => {
   const { patientId } = req.params;
 
   try {
+    if (!(await patientOwned(patientId, req.user))) {
+      return res.status(404).json({ error: "Patient not found" });
+    }
     const result = await pool.query(
       "SELECT * FROM consultations WHERE patient_id = $1",
       [patientId]
@@ -141,6 +154,10 @@ export const getConsultationsByPatient = async (req, res) => {
 export const getConsultationDetails = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!(await consultationOwned(id, req.user))) {
+      return res.status(404).json({ error: "Consultation not found" });
+    }
 
     // Single query fetching consultation, symptoms, and vitals together
     const result = await pool.query(
@@ -204,13 +221,8 @@ export const addSymptomsToConsultation = async (req, res) => {
       return res.status(400).json({ error: "symptom_ids array is required" });
     }
 
-    // Validate consultation exists
-    const consultationCheck = await client.query(
-      "SELECT id FROM consultations WHERE id = $1",
-      [consultationId]
-    );
-
-    if (consultationCheck.rowCount === 0) {
+    // Validate consultation exists AND belongs to the caller
+    if (!(await consultationOwned(consultationId, req.user, client))) {
       return res.status(404).json({ error: "Consultation not found" });
     }
 
@@ -264,8 +276,11 @@ export const addSymptomsToConsultation = async (req, res) => {
 export const removeSymptomFromConsultation = async (req, res) => {
   try {
     const { consultation_id, symptom_id } = req.params;
+    if (!(await consultationOwned(consultation_id, req.user))) {
+      return res.status(404).json({ error: "Consultation not found" });
+    }
     await pool.query(
-      `DELETE FROM consultation_symptoms 
+      `DELETE FROM consultation_symptoms
              WHERE consultation_id = $1 AND symptom_id = $2`,
       [consultation_id, symptom_id]
     );
@@ -290,6 +305,9 @@ export const saveCompleteConsultation = async (req, res) => {
   const parsedPatientId = parseInt(patient_id);
   if (!parsedPatientId || isNaN(parsedPatientId)) {
     return res.status(400).json({ error: "patient_id is required and must be a number" });
+  }
+  if (!(await patientOwned(parsedPatientId, req.user))) {
+    return res.status(404).json({ error: "Patient not found" });
   }
 
   // Validate medicines and tests BEFORE opening the transaction so we don't
@@ -338,9 +356,9 @@ export const saveCompleteConsultation = async (req, res) => {
 
     // 1. Consultation
     const consultRes = await client.query(
-      `INSERT INTO consultations (patient_id, doctor_name, visit_date)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [parsedPatientId, doctor_name, visit_date || new Date().toISOString()]
+      `INSERT INTO consultations (patient_id, doctor_name, visit_date, created_by)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [parsedPatientId, doctor_name, visit_date || new Date().toISOString(), req.user.id]
     );
     const consultation = consultRes.rows[0];
     const cId = consultation.id;
@@ -488,15 +506,18 @@ export const saveCompleteConsultation = async (req, res) => {
 };
 
 export const createFullConsultation = async (req, res) => {
+  if (!(await patientOwned(req.body.patient_id, req.user))) {
+    return res.status(404).json({ error: "Patient not found" });
+  }
   const dbClient = await pool.connect();
   try {
     await dbClient.query("BEGIN");
 
     // 1. Create consultation
     const consultationRes = await dbClient.query(
-      `INSERT INTO consultations (patient_id, doctor_name)
-         VALUES ($1, $2) RETURNING id`,
-      [req.body.patient_id, req.body.doctor_name]
+      `INSERT INTO consultations (patient_id, doctor_name, created_by)
+         VALUES ($1, $2, $3) RETURNING id`,
+      [req.body.patient_id, req.body.doctor_name, req.user.id]
     );
     const consultationId = consultationRes.rows[0].id;
 

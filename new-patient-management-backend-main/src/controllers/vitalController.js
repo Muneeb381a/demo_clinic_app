@@ -1,4 +1,6 @@
 import {pool } from "../models/db.js"
+import { patientOwned, consultationOwned } from "../middleware/scope.js";
+
 export const recordVitals = async (req, res) => {
     try {
         const {
@@ -14,6 +16,9 @@ export const recordVitals = async (req, res) => {
 
         if (!consultation_id || !patient_id) {
             return res.status(400).json({ message: "consultation_id and patient_id are required" });
+        }
+        if (!(await consultationOwned(consultation_id, req.user))) {
+            return res.status(404).json({ message: "Consultation not found" });
         }
 
         // Let the DB foreign key constraint enforce patient/consultation existence;
@@ -56,6 +61,9 @@ export const recordVitals = async (req, res) => {
 export const getVitalHistory = async (req, res) => {
     try {
         const { patient_id } = req.params;
+        if (!(await patientOwned(patient_id, req.user))) {
+            return res.status(404).json({ error: "Patient not found" });
+        }
         const result = await pool.query(`
             SELECT vs.* FROM vital_signs vs
             JOIN consultations c ON vs.consultation_id = c.id

@@ -1,17 +1,20 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import compression from "compression";
-import { pool, closeDB, ensureIndexes } from "./models/db.js";
+import { pool, closeDB } from "./models/db.js";
 import { ApiError } from "./utils/ApiError.js";
 import { asyncHandler } from "./utils/asyncHandler.js";
-import morgan from "morgan";
 import rateLimit from "express-rate-limit";
-import { logger } from "../logger.js";
+import { logger } from "./lib/logger.js";
+import { requestContext } from "./middleware/requestContext.js";
+import { initSentry, captureError } from "./lib/observability.js";
 
 // Load environment variables first
 dotenv.config();
+initSentry();
 
 const app = express();
 
@@ -41,6 +44,9 @@ const config = {
 
 // Gzip compression — reduces response payload size ~70% for JSON
 app.use(compression());
+
+// Request id + per-request logger (req.log) + structured access log
+app.use(requestContext);
 
 // Security headers
 app.use(helmet({
@@ -77,19 +83,10 @@ app.use(cors({
   origin: (origin, callback) =>
     originAllowed(origin) ? callback(null, true) : callback(new Error("Not allowed by CORS")),
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
   credentials: true,
   optionsSuccessStatus: 204
 }));
-
-// Request logging
-if (config.server.env !== "test") {
-  app.use(morgan(config.server.env === "development" ? "dev" : "combined", {
-    stream: {
-      write: (message) => logger.info(message.trim())
-    }
-  }));
-}
 
 // Rate limiting
 app.use(rateLimit({
@@ -120,30 +117,30 @@ app.use(express.urlencoded({
   limit: config.server.requestLimit
 }));
 
-// Enhanced health check with PostgreSQL
+// Parse the refresh-token cookie (auth flow only).
+app.use(cookieParser());
+
+// Liveness — process is up. No dependencies, safe to expose.
+app.get("/live", (req, res) => res.json({ status: "ok" }));
+
+// Readiness — can we serve traffic (DB reachable)? Minimal payload; no
+// process internals (memory/uptime) exposed publicly.
 app.get("/health", asyncHandler(async (req, res) => {
   let dbStatus = "disconnected";
   let dbLatency = 0;
 
   try {
-    const start = process.hrtime();
+    const start = process.hrtime.bigint();
     await pool.query("SELECT 1");
-    const latency = process.hrtime(start);
-
+    dbLatency = Math.round(Number(process.hrtime.bigint() - start) / 1e6);
     dbStatus = "connected";
-    dbLatency = Math.round(latency[0] * 1e3 + latency[1] / 1e6);
   } catch (error) {
-    logger.error("Database health check failed", { error: error.message });
+    (req.log || logger).error("health check: database unreachable", { error: error.message });
   }
 
   res.status(dbStatus === "connected" ? 200 : 503).json({
-    status: dbStatus,
-    database: {
-      type: "PostgreSQL",
-      latency: `${dbLatency}ms`
-    },
-    uptime: process.uptime(),
-    memory: process.memoryUsage()
+    status: dbStatus === "connected" ? "ok" : "degraded",
+    database: { type: "PostgreSQL", status: dbStatus, latencyMs: dbLatency },
   });
 }));
 
@@ -175,9 +172,6 @@ import suggestionRoutes from "./routes/suggestionRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
 import { followUpReminderHandler } from "./cron/followUpReminder.js";
 import { requireAuth } from "./middleware/auth.js";
-
-// Fire-and-forget: creates GIN/btree indexes on first cold start; no-op if they already exist
-ensureIndexes().catch((err) => logger.warn("ensureIndexes failed", { error: err.message }));
 
 app.get("/ping", async (req, res) => {
   try {
@@ -262,20 +256,24 @@ app.use((err, req, res, next) => {
     }
   }
 
-  // Log error details
-  logger.error(message, {
+  const log = req.log || logger;
+  log.error(message, {
     statusCode,
-    path: req.path,
+    path: req.originalUrl,
     method: req.method,
     stack: isProduction ? undefined : err.stack,
-    dbErrorCode: err.code
+    dbErrorCode: err.code,
   });
+
+  // Ship genuine server faults to Sentry (no-op unless SENTRY_DSN is set).
+  if (statusCode >= 500) captureError(err, req);
 
   res.status(statusCode).json({
     success: false,
     message: isProduction && statusCode === 500
       ? "Internal server error"
       : message,
+    requestId: req.id,
     ...(!isProduction && {
       errorCode: err.code,
       details: err.details

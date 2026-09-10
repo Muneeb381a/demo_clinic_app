@@ -1,10 +1,25 @@
 import {pool} from "../models/db.js"
+import { patientOwned, isAdmin } from "../middleware/scope.js";
+
+// medical_conditions rows are owned through their patient.
+const conditionOwned = async (id, user) => {
+  const sql = isAdmin(user)
+    ? "SELECT 1 FROM medical_conditions WHERE id = $1"
+    : `SELECT 1 FROM medical_conditions mc JOIN patients p ON p.id = mc.patient_id
+        WHERE mc.id = $1 AND p.doctor_id = $2`;
+  const { rowCount } = await pool.query(sql, isAdmin(user) ? [id] : [id, user.id]);
+  return rowCount > 0;
+};
 
 export const createCondition = async (req, res) => {
     try {
         const { patient_id } = req.params;
         const { condition_name, duration, diagnosis_date, notes } = req.body;
-        
+
+        if (!(await patientOwned(patient_id, req.user))) {
+            return res.status(404).json({ error: "Patient not found" });
+        }
+
         const result = await pool.query(
             `INSERT INTO medical_conditions 
              (patient_id, condition_name, duration, diagnosis_date, notes)
@@ -21,6 +36,9 @@ export const createCondition = async (req, res) => {
 export const getPatientConditions = async (req, res) => {
     try {
         const { patient_id } = req.params;
+        if (!(await patientOwned(patient_id, req.user))) {
+            return res.status(404).json({ error: "Patient not found" });
+        }
         const result = await pool.query(
             `SELECT * FROM medical_conditions WHERE patient_id = $1`,
             [patient_id]
@@ -35,7 +53,11 @@ export const updateCondition = async (req, res) => {
     try {
         const { id } = req.params;
         const { condition_name, duration, diagnosis_date, notes } = req.body;
-        
+
+        if (!(await conditionOwned(id, req.user))) {
+            return res.status(404).json({ error: "Condition not found" });
+        }
+
         const result = await pool.query(
             `UPDATE medical_conditions SET
              condition_name = $1, duration = $2, 
@@ -53,6 +75,9 @@ export const updateCondition = async (req, res) => {
 export const deleteCondition = async (req, res) => {
     try {
         const { id } = req.params;
+        if (!(await conditionOwned(id, req.user))) {
+            return res.status(404).json({ error: "Condition not found" });
+        }
         await pool.query('DELETE FROM medical_conditions WHERE id = $1', [id]);
         res.json({ message: 'Condition deleted successfully' });
     } catch (error) {

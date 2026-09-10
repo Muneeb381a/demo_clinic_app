@@ -11,7 +11,9 @@ import { z } from "zod";
 export const validate = (schema) => (req, res, next) => {
   const result = schema.safeParse(req.body);
   if (!result.success) {
-    const errors = result.error.errors.map((e) => ({
+    // Zod v4 exposes the array as `.issues` (`.errors` was removed).
+    const issues = result.error.issues ?? result.error.errors ?? [];
+    const errors = issues.map((e) => ({
       field: e.path.join("."),
       message: e.message,
     }));

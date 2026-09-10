@@ -16,6 +16,8 @@ import AddTestForm from "./components/AddTestForm";
 import DashboardPage from "./pages/DashboardPage";
 import FloatingChatbot from "./components/FloatingChatbot";
 import LoginPage from "./pages/LoginPage";
+import { bootstrapSession, logout as logoutSession } from "./utils/auth";
+import FullPageLoader from "./pages/FullPageLoader";
 
 const NavLink = ({ to, children, currentPath }) => {
   const navigate = useNavigate();
@@ -94,7 +96,17 @@ const App = () => {
     try { return localStorage.getItem("darkMode") === "true"; } catch { return false; }
   });
 
-  const [authed, setAuthed] = useState(() => !!localStorage.getItem("auth_token"));
+  // null = still checking the refresh cookie; true/false once known.
+  const [authed, setAuthed] = useState(null);
+
+  useEffect(() => {
+    // One-time: drop any legacy token from the old localStorage-based auth.
+    try {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_user");
+    } catch { /* ignore */ }
+    bootstrapSession().then((user) => setAuthed(!!user));
+  }, []);
 
   useEffect(() => {
     if (darkMode) {
@@ -105,11 +117,14 @@ const App = () => {
     try { localStorage.setItem("darkMode", String(darkMode)); } catch {}
   }, [darkMode]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("auth_user");
+  const handleLogout = async () => {
+    await logoutSession();
     setAuthed(false);
   };
+
+  if (authed === null) {
+    return <FullPageLoader isLoading />;
+  }
 
   if (!authed) {
     return <LoginPage onLogin={() => setAuthed(true)} />;

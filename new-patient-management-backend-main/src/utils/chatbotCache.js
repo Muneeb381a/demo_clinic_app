@@ -16,7 +16,7 @@
 import crypto   from "crypto";
 import { cacheGet, cacheSet } from "./cache.js";
 import { pool }               from "../models/db.js";
-import { logger }             from "../../logger.js";
+import { logger }             from "../lib/logger.js";
 
 // ── L1 in-process cache ────────────────────────────────────────────────────
 const L1         = new Map();   // key → { value, exp }
