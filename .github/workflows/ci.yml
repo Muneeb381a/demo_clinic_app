@@ -107,3 +107,9 @@ jobs:
 
       - name: Seed must apply against the migrated schema
         run: npm run seed
+
+      - name: Per-doctor isolation (integration)
+        run: npx vitest run src/isolation.int.test.js
+        env:
+          INTEGRATION_DB_URL: postgresql://postgres:postgres@localhost:5432/pmtest
+          JWT_SECRET: ci_only_secret_min_32_chars_xxxxxxxxxxxx
