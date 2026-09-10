@@ -1,7 +1,7 @@
 // db.js
 import dotenv from "dotenv";
 import pkg from "pg";
-import { logger } from "../../logger.js";
+import { logger } from "../lib/logger.js";
 
 dotenv.config({ path: "./.env" });
 
