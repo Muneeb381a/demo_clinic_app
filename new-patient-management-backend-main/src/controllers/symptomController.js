@@ -1,5 +1,6 @@
 import { pool } from "../models/db.js";
 import { cacheGet, cacheSet, cacheDel } from "../utils/cache.js";
+import { consultationOwned } from "../middleware/scope.js";
 
 const SYMPTOM_LIST_KEY = "symptoms:all";
 const SYMPTOM_TTL = 600; // 10 minutes
@@ -49,7 +50,11 @@ export const addSymptomToConsultation = async (req, res) => {
           error: "consultation_id and symptoms array are required"
         });
       }
-  
+
+      if (!(await consultationOwned(consultation_id, req.user))) {
+        return res.status(404).json({ error: "Consultation not found" });
+      }
+
       await pool.query("BEGIN");
   
       // Get patient_id from consultation
@@ -103,8 +108,12 @@ export const removeSymptomFromConsultation = async (req, res) => {
         .json({ error: "consultation_id and symptom_id are required" });
     }
 
+    if (!(await consultationOwned(consultation_id, req.user))) {
+      return res.status(404).json({ error: "Consultation not found" });
+    }
+
     const result = await pool.query(
-      `DELETE FROM consultation_symptoms 
+      `DELETE FROM consultation_symptoms
        WHERE consultation_id = $1 AND symptom_id = $2`,
       [consultation_id, symptom_id]
     );

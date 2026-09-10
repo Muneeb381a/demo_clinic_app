@@ -1,5 +1,18 @@
 import twilio from 'twilio';
 import { pool } from '../models/db.js';
+import { consultationOwned, isAdmin } from '../middleware/scope.js';
+
+// follow_ups rows are owned through consultation -> patient.
+const followUpOwned = async (id, user) => {
+  const sql = isAdmin(user)
+    ? "SELECT 1 FROM follow_ups WHERE id = $1"
+    : `SELECT 1 FROM follow_ups f
+         JOIN consultations c ON c.id = f.consultation_id
+         JOIN patients p ON p.id = c.patient_id
+        WHERE f.id = $1 AND p.doctor_id = $2`;
+  const { rowCount } = await pool.query(sql, isAdmin(user) ? [id] : [id, user.id]);
+  return rowCount > 0;
+};
 
 
 // const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -26,6 +39,10 @@ export const scheduleFollowUp = async (req, res) => {
 
     if (isNaN(new Date(follow_up_date).getTime())) {
       return res.status(400).json({ error: "Invalid date format" });
+    }
+
+    if (!(await consultationOwned(consultation_id, req.user))) {
+      return res.status(404).json({ error: "Consultation not found" });
     }
 
     // Single query: validate consultation exists AND insert in one round-trip via CTE
@@ -102,6 +119,10 @@ export const getFollowUps = async (req, res) => {
   try {
     const { consultation_id } = req.params;
 
+    if (!(await consultationOwned(consultation_id, req.user))) {
+      return res.status(404).json({ error: "Consultation not found" });
+    }
+
     const result = await pool.query(`
       SELECT f.* FROM follow_ups f
       WHERE f.consultation_id = $1
@@ -123,6 +144,10 @@ export const updateFollowUp = async (req, res) => {
 
     if (is_completed !== undefined && typeof is_completed !== "boolean") {
       return res.status(400).json({ error: "is_completed must be a boolean" });
+    }
+
+    if (!(await followUpOwned(id, req.user))) {
+      return res.status(404).json({ error: "Follow-up not found" });
     }
 
     const result = await pool.query(

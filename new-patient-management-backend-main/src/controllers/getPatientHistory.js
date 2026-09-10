@@ -1,5 +1,6 @@
 import { pool } from "../models/db.js";
 import { ApiError } from "../utils/ApiError.js";
+import { patientOwned, consultationOwned } from "../middleware/scope.js";
 
 // export const getPatientHistory = async (req, res) => {
 //   try {
@@ -174,6 +175,10 @@ export const getPatientHistory = async (req, res) => {
       return res.status(400).json({ error: "Patient ID is required" });
     }
 
+    if (!(await patientOwned(patientId, req.user))) {
+      return res.status(404).json({ error: "Patient not found" });
+    }
+
     const query = `
       WITH patient_data AS (
         SELECT
@@ -334,6 +339,10 @@ export const getSpecificConsultationForPatient = async (req, res) => {
       return res
         .status(400)
         .json({ error: "Patient ID and Consultation ID are required" });
+    }
+
+    if (!(await consultationOwned(consultationId, req.user))) {
+      return res.status(404).json({ error: "Consultation not found" });
     }
 
     const query = `
@@ -879,6 +888,10 @@ export const updateConsultationForPatient = async (req, res) => {
     return res.status(400).json({ error: "Consultation ID is required" });
   }
 
+  if (!(await consultationOwned(consultationId, req.user))) {
+    return res.status(404).json({ error: "Consultation not found" });
+  }
+
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -1144,6 +1157,10 @@ export const printConsultationForPatient = async (req, res) => {
   try {
     if (!patientId || !consultationId) {
       throw new ApiError("Patient ID and Consultation ID are required", 400);
+    }
+
+    if (!(await consultationOwned(consultationId, req.user))) {
+      return res.status(404).json({ error: "Consultation not found" });
     }
 
     // Fetch consultation data (reuse getSpecificConsultationForPatient logic)
@@ -2527,6 +2544,10 @@ export const generatePrescriptionPDF = async (req, res) => {
   try {
     if (!patientId || !consultationId) {
       throw new ApiError("Patient ID and Consultation ID are required", 400);
+    }
+
+    if (!(await consultationOwned(consultationId, req.user))) {
+      return res.status(404).json({ error: "Consultation not found" });
     }
 
     client = await pool.connect();

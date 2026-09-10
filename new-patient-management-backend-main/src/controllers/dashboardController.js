@@ -1,27 +1,41 @@
 import { pool } from "../models/db.js";
 import { cacheGet, cacheSet } from "../utils/cache.js";
+import { isAdmin } from "../middleware/scope.js";
 
 const DASHBOARD_TTL = 60; // 1 minute — stats should feel near-realtime
 
 // GET /api/dashboard/stats
-// Returns all dashboard data in a single DB round-trip.
+// Returns all dashboard data in a single DB round-trip, scoped to the caller's
+// own patients/consultations (admins see the whole clinic).
 export const getDashboardStats = async (req, res) => {
   try {
-    const cacheKey = "dashboard:stats";
+    const scoped = !isAdmin(req.user);
+    const params = scoped ? [req.user.id] : [];
+    const cacheKey = `dashboard:stats:${scoped ? `u${req.user.id}` : "admin"}`;
     const cached = await cacheGet(cacheKey);
     if (cached) return res.json(cached);
+
+    // Per-doctor predicates ("" for admins). Patients are owned by doctor_id;
+    // consultations by created_by; follow-ups/prescriptions/symptoms through
+    // their consultation.
+    const wPat   = scoped ? "WHERE doctor_id = $1" : "";
+    const aPatWk = scoped ? "AND doctor_id = $1" : "";
+    const aCons  = scoped ? "AND created_by = $1" : "";
+    const aConsC = scoped ? "AND c.created_by = $1" : "";
+    const aPatP  = scoped ? "AND p.doctor_id = $1" : "";
 
     const result = await pool.query(`
       WITH
       counts AS (
         SELECT
-          (SELECT COUNT(*) FROM patients)                                              AS total_patients,
+          (SELECT COUNT(*) FROM patients ${wPat})                                      AS total_patients,
           (SELECT COUNT(*) FROM consultations
-             WHERE visit_date = CURRENT_DATE)                                          AS today_consultations,
+             WHERE visit_date = CURRENT_DATE ${aCons})                                 AS today_consultations,
           (SELECT COUNT(*) FROM patients
-             WHERE checkup_date >= DATE_TRUNC('week', CURRENT_DATE))                  AS new_patients_this_week,
-          (SELECT COUNT(*) FROM follow_ups
-             WHERE follow_up_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days')
+             WHERE checkup_date >= DATE_TRUNC('week', CURRENT_DATE) ${aPatWk})         AS new_patients_this_week,
+          (SELECT COUNT(*) FROM follow_ups f
+             JOIN consultations c ON c.id = f.consultation_id
+             WHERE f.follow_up_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' ${aConsC})
                                                                                       AS upcoming_followups_count
       ),
 
@@ -29,6 +43,7 @@ export const getDashboardStats = async (req, res) => {
         SELECT id, name, age, gender, mobile, mr_no,
                TO_CHAR(checkup_date, 'DD Mon YYYY') AS registered_on
         FROM patients
+        ${wPat}
         ORDER BY id DESC
         LIMIT 6
       ),
@@ -45,7 +60,7 @@ export const getDashboardStats = async (req, res) => {
         FROM follow_ups f
         JOIN consultations c ON c.id = f.consultation_id
         JOIN patients p ON p.id = c.patient_id
-        WHERE f.follow_up_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days'
+        WHERE f.follow_up_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '7 days' ${aPatP}
         ORDER BY f.follow_up_date ASC
         LIMIT 8
       ),
@@ -55,7 +70,7 @@ export const getDashboardStats = async (req, res) => {
           TO_CHAR(DATE_TRUNC('month', visit_date::date), 'Mon') AS month,
           COUNT(*) AS consultations
         FROM consultations
-        WHERE visit_date::date >= CURRENT_DATE - INTERVAL '6 months'
+        WHERE visit_date::date >= CURRENT_DATE - INTERVAL '6 months' ${aCons}
         GROUP BY DATE_TRUNC('month', visit_date::date)
         ORDER BY DATE_TRUNC('month', visit_date::date) ASC
       ),
@@ -64,6 +79,8 @@ export const getDashboardStats = async (req, res) => {
         SELECT m.brand_name AS name, COUNT(*) AS count
         FROM prescriptions pr
         JOIN medicines m ON pr.medicine_id = m.id
+        JOIN consultations c ON c.id = pr.consultation_id
+        ${scoped ? "WHERE c.created_by = $1" : ""}
         GROUP BY m.brand_name
         ORDER BY count DESC
         LIMIT 10
@@ -73,6 +90,8 @@ export const getDashboardStats = async (req, res) => {
         SELECT s.name, COUNT(*) AS count
         FROM consultation_symptoms cs
         JOIN symptoms s ON cs.symptom_id = s.id
+        JOIN consultations c ON c.id = cs.consultation_id
+        ${scoped ? "WHERE c.created_by = $1" : ""}
         GROUP BY s.name
         ORDER BY count DESC
         LIMIT 10
@@ -85,7 +104,7 @@ export const getDashboardStats = async (req, res) => {
         (SELECT COALESCE(JSON_AGG(m), '[]') FROM monthly_trend m)                      AS monthly_trend,
         (SELECT COALESCE(JSON_AGG(tm), '[]') FROM top_medicines tm)                    AS top_medicines,
         (SELECT COALESCE(JSON_AGG(ts), '[]') FROM top_symptoms ts)                     AS top_symptoms
-    `);
+    `, params);
 
     const row = result.rows[0];
     const response = {

@@ -1,5 +1,6 @@
 import { pool } from "../models/db.js";
 import { cacheGet, cacheSet, cacheDel } from "../utils/cache.js";
+import { isAdmin, patientOwned } from "../middleware/scope.js";
 
 const TEST_LIST_KEY = "tests:all";
 const TEST_TTL = 600; // 10 minutes
@@ -54,10 +55,13 @@ export const assignTestToConsultation = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    const consultationExists = await client.query(
-      "SELECT 1 FROM consultations WHERE id = $1",
-      [consultation_id]
-    );
+    const consultationExists = isAdmin(req.user)
+      ? await client.query("SELECT 1 FROM consultations WHERE id = $1", [consultation_id])
+      : await client.query(
+          `SELECT 1 FROM consultations c JOIN patients p ON p.id = c.patient_id
+            WHERE c.id = $1 AND p.doctor_id = $2`,
+          [consultation_id, req.user.id]
+        );
     if (!consultationExists.rows.length) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Consultation not found" });
@@ -100,6 +104,9 @@ export const assignTestToConsultation = async (req, res) => {
 export const getTestsByPatient = async (req, res) => {
   try {
     const { patient_id } = req.params;
+    if (!(await patientOwned(patient_id, req.user))) {
+      return res.status(404).json({ message: "No tests found for this patient." });
+    }
     const result = await pool.query(
       `SELECT ct.test_id, t.test_name, ct.consultation_id, ct.assigned_at
        FROM consultation_tests ct

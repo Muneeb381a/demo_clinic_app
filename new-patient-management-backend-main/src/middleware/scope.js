@@ -24,6 +24,28 @@ export const patientScope = (user, column = "doctor_id", nextParamIndex = 1) => 
   return { text: ` AND ${column} = $${nextParamIndex}`, params: [user.id] };
 };
 
+/**
+ * Boolean ownership checks for controllers that catch-and-500 on throw
+ * (most of this codebase). Return false instead of throwing so the caller
+ * can `return res.status(404)`. Admins pass everything.
+ */
+export const patientOwned = async (patientId, user, client = pool) => {
+  const sql = isAdmin(user)
+    ? "SELECT 1 FROM patients WHERE id = $1"
+    : "SELECT 1 FROM patients WHERE id = $1 AND doctor_id = $2";
+  const { rowCount } = await client.query(sql, isAdmin(user) ? [patientId] : [patientId, user.id]);
+  return rowCount > 0;
+};
+
+export const consultationOwned = async (consultationId, user, client = pool) => {
+  const sql = isAdmin(user)
+    ? "SELECT 1 FROM consultations WHERE id = $1"
+    : `SELECT 1 FROM consultations c JOIN patients p ON p.id = c.patient_id
+        WHERE c.id = $1 AND p.doctor_id = $2`;
+  const { rowCount } = await client.query(sql, isAdmin(user) ? [consultationId] : [consultationId, user.id]);
+  return rowCount > 0;
+};
+
 /** Throws ApiError(404) unless the patient exists and belongs to the caller. */
 export const assertPatientOwned = async (patientId, user, client = pool) => {
   const sql = isAdmin(user)

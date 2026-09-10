@@ -1,32 +1,5 @@
 import { pool } from "../models/db.js";
-import { isAdmin } from "../middleware/scope.js";
-
-// Inline ownership guards (these controllers catch-and-500 on throw, so we
-// return a boolean rather than throwing). Admins pass everything.
-const patientOwned = async (patientId, user, db = pool) => {
-  if (isAdmin(user)) {
-    const r = await db.query("SELECT 1 FROM patients WHERE id = $1", [patientId]);
-    return r.rowCount > 0;
-  }
-  const r = await db.query(
-    "SELECT 1 FROM patients WHERE id = $1 AND doctor_id = $2",
-    [patientId, user.id]
-  );
-  return r.rowCount > 0;
-};
-
-const consultationOwned = async (consultationId, user, db = pool) => {
-  if (isAdmin(user)) {
-    const r = await db.query("SELECT 1 FROM consultations WHERE id = $1", [consultationId]);
-    return r.rowCount > 0;
-  }
-  const r = await db.query(
-    `SELECT 1 FROM consultations c JOIN patients p ON p.id = c.patient_id
-      WHERE c.id = $1 AND p.doctor_id = $2`,
-    [consultationId, user.id]
-  );
-  return r.rowCount > 0;
-};
+import { isAdmin, patientOwned, consultationOwned } from "../middleware/scope.js";
 
 // export const createConsultation = async (req, res) => {
 //   try {
