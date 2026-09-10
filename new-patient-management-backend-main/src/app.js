@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
-import { pool, closeDB, ensureIndexes } from "./models/db.js";
+import { pool, closeDB } from "./models/db.js";
 import { ApiError } from "./utils/ApiError.js";
 import { asyncHandler } from "./utils/asyncHandler.js";
 import morgan from "morgan";
@@ -175,9 +175,6 @@ import suggestionRoutes from "./routes/suggestionRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
 import { followUpReminderHandler } from "./cron/followUpReminder.js";
 import { requireAuth } from "./middleware/auth.js";
-
-// Fire-and-forget: creates GIN/btree indexes on first cold start; no-op if they already exist
-ensureIndexes().catch((err) => logger.warn("ensureIndexes failed", { error: err.message }));
 
 app.get("/ping", async (req, res) => {
   try {

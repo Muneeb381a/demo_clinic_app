@@ -1,5 +1,5 @@
 import fs from "fs/promises";
-import { pool, closeDB, ensureIndexes } from "./models/db.js";
+import { pool, closeDB } from "./models/db.js";
 import app from "./app.js";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -144,9 +144,6 @@ const startServer = async () => {
       }
     });
     
-    // Ensure DB indexes exist (no-op if already created)
-    await ensureIndexes();
-
     const server = app.listen(config.server.port, () => {
       logger.info(`Server started in ${config.server.env} mode`, {
         port: config.server.port,
