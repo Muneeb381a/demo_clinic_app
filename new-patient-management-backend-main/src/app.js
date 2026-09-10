@@ -172,6 +172,7 @@ import suggestionRoutes from "./routes/suggestionRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
 import { followUpReminderHandler } from "./cron/followUpReminder.js";
 import { requireAuth } from "./middleware/auth.js";
+import { audit } from "./middleware/audit.js";
 
 app.get("/ping", async (req, res) => {
   try {
@@ -212,6 +213,9 @@ app.use("/api/auth", authRoutes);
 
 // ── Protect everything below this line ─────────────────────────────────────
 app.use(requireAuth);
+
+// Append-only access/change trail for authenticated requests
+app.use(audit);
 
 // ── Protected routes ────────────────────────────────────────────────────────
 app.use("/api/patients", patientRoutes);
