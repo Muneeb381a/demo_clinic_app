@@ -5,15 +5,17 @@ import {
   updateCondition,
   deleteCondition
 } from '../controllers/conditionController.js';
+import { requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
+const requireDoctor = requireRole('doctor', 'platform_admin');
 
 router.route('/')
-  .post(createCondition)
+  .post(requireDoctor, createCondition)
   .get(getPatientConditions);
 
 router.route('/:id')
-  .put(updateCondition)
-  .delete(deleteCondition);
+  .put(requireDoctor, updateCondition)
+  .delete(requireDoctor, deleteCondition);
 
 export default router;
