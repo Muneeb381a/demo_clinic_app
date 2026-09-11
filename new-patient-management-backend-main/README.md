@@ -87,7 +87,7 @@ new-2026-patient_management_backend-main/
     │   └── validate.js               # Zod schema validation middleware
     │
     ├── models/
-    │   └── db.js                     # PostgreSQL connection pool + ensureIndexes()
+    │   └── db.js                     # PostgreSQL connection pool
     │
     ├── cron/
     │   └── followUpReminder.js       # Follow-up reminder handler
@@ -560,19 +560,16 @@ Returns all valid values for every neuro exam dropdown field (motor function, mu
 
 ### Cron Endpoints
 
-Called by an external cron service. Require the `x-cron-secret` header matching `CRON_SECRET` env var.
+Scheduled by Vercel Cron (see `crons` in `vercel.json`) — do **not** also point an
+external service (cron-job.org etc.) at these; a second pinger doubles the
+invocation count and, worse, doubles how much it fights Neon's autosuspend for
+no benefit. Requests are authenticated via the `Authorization: Bearer <CRON_SECRET>`
+header, which is what Vercel Cron actually sends.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/cron/follow-up-reminders` | Send WhatsApp reminders for upcoming follow-ups |
-| `GET` | `/api/cron/db-keepalive` | Ping the DB to prevent cold starts |
-
-**Example cron-job.org setup:**
-```
-URL: https://your-backend.vercel.app/api/cron/db-keepalive
-Headers: x-cron-secret: your-cron-secret
-Schedule: Every 5 minutes
-```
+| Method | Endpoint | Schedule | Description |
+|--------|----------|----------|-------------|
+| `GET` | `/api/cron/follow-up-reminders` | Daily, 4:00 UTC (9 AM PKT) | Send WhatsApp reminders for upcoming follow-ups |
+| `GET` | `/api/cron/db-keepalive` | Every 5 min, 4–16 UTC (9 AM–9 PM PKT) | Ping the DB during clinic hours only |
 
 ---
 
@@ -691,9 +688,10 @@ follow_ups (id, consultation_id, follow_up_date, notes, is_completed, created_at
 users (id, email, password_hash, role, created_at)
 ```
 
-### Auto-created Performance Indexes
+### Performance Indexes
 
-Created automatically at every server startup via `ensureIndexes()` (safe — uses `IF NOT EXISTS`):
+Owned by `migrations/` (applied once via `npm run migrate`, not on every
+server startup — see `migrations/README.md`):
 
 ```sql
 CREATE INDEX IF NOT EXISTS idx_consultations_patient_id      ON consultations(patient_id);
@@ -811,13 +809,20 @@ The app is fully serverless-compatible:
 
 ### Keep-alive cron for NeonDB
 
-NeonDB suspends after ~5 minutes of inactivity. Set up a cron job on [cron-job.org](https://cron-job.org) or Vercel Cron:
+Neon suspends its compute after ~5 minutes of inactivity to stay within the
+free/launch tier's compute-hour budget — that's the whole point of a
+serverless database, and for a low-traffic clinic app it's the right default.
+Pinging it 24/7 to prevent that (as an early version of this project did)
+burns compute hours around the clock for no benefit outside opening hours,
+and can exhaust a free-tier's monthly allowance in days.
 
-```
-URL:     https://your-backend.vercel.app/api/cron/db-keepalive
-Header:  x-cron-secret: <your CRON_SECRET>
-Every:   5 minutes
-```
+`vercel.json`'s `db-keepalive` cron is scoped to clinic hours only
+(`*/5 4-16 * * *` — every 5 min, 4:00–16:59 UTC = 9 AM–9 PM PKT). Outside that
+window the database is allowed to suspend normally; the first request after a
+suspend pays a ~1–3s cold-start, which is an acceptable trade for not running
+compute all night. Adjust the hour range in `vercel.json` if your clinic's
+timing differs, and don't also point an external pinger (cron-job.org etc.)
+at this endpoint — that just doubles the cost for the same effect.
 
 ---
 
