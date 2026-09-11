@@ -30,17 +30,32 @@ const startSession = async (req, res, user) => {
 
 /**
  * POST /api/auth/register
- * Body: { name, email, password, specialization }
+ * Platform-admin only (see routes/authRoutes.js) — creates a staff account
+ * directly in an existing clinic. The normal way to onboard a clinic's first
+ * user is POST /api/platform/clinics (creates the clinic + its owner in one
+ * step); this endpoint is the lower-level primitive for adding someone to a
+ * clinic that already exists. Everyday staff growth should go through
+ * clinic-owner invites (POST /api/clinic/invites), not this endpoint.
+ *
+ * Body: { name, email, password, clinic_id, role?, is_owner?, specialization? }
  */
 export const register = async (req, res) => {
   try {
-    const { name, email, password, specialization } = req.body;
+    const { name, email, password, clinic_id, role, is_owner, specialization } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ success: false, message: "name, email and password are required" });
+    if (!name || !email || !password || !clinic_id) {
+      return res
+        .status(400)
+        .json({ success: false, message: "name, email, password and clinic_id are required" });
     }
     if (password.length < 8) {
       return res.status(400).json({ success: false, message: "Password must be at least 8 characters" });
+    }
+    const resolvedRole = ["doctor", "receptionist"].includes(role) ? role : "doctor";
+
+    const clinic = await pool.query("SELECT id FROM clinics WHERE id = $1 AND status = 'active'", [clinic_id]);
+    if (clinic.rowCount === 0) {
+      return res.status(404).json({ success: false, message: "Clinic not found" });
     }
 
     const existing = await pool.query("SELECT id FROM auth_users WHERE email = $1", [email.toLowerCase()]);
@@ -51,15 +66,15 @@ export const register = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     const result = await pool.query(
-      `INSERT INTO auth_users (name, email, password_hash, salt, role, specialization)
-       VALUES ($1, $2, $3, '', 'doctor', $4) RETURNING id, name, email, role`,
-      [name, email.toLowerCase(), passwordHash, specialization || null]
+      `INSERT INTO auth_users (name, email, password_hash, salt, role, specialization, clinic_id, is_owner)
+       VALUES ($1, $2, $3, '', $4, $5, $6, $7)
+       RETURNING id, name, email, role, clinic_id, is_owner`,
+      [name, email.toLowerCase(), passwordHash, resolvedRole, specialization || null, clinic_id, Boolean(is_owner)]
     );
 
-    const user = result.rows[0];
-    const accessToken = await startSession(req, res, user);
-
-    res.status(201).json({ success: true, accessToken, user });
+    // Platform admin is creating an account for someone else — don't touch
+    // the admin's own session (no cookie, no access token for the caller).
+    res.status(201).json({ success: true, user: result.rows[0] });
   } catch (error) {
     console.error("register error:", error.message);
     res.status(500).json({ success: false, message: "Registration failed" });
@@ -79,7 +94,7 @@ export const login = async (req, res) => {
     }
 
     const result = await pool.query(
-      "SELECT id, name, email, role, password_hash FROM auth_users WHERE email = $1",
+      "SELECT id, name, email, role, clinic_id, is_owner, password_hash FROM auth_users WHERE email = $1",
       [email.toLowerCase()]
     );
 
@@ -93,7 +108,14 @@ export const login = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
-    const publicUser = { id: user.id, name: user.name, email: user.email, role: user.role };
+    const publicUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      clinic_id: user.clinic_id,
+      is_owner: user.is_owner,
+    };
     const accessToken = await startSession(req, res, publicUser);
     res.json({ success: true, accessToken, user: publicUser });
   } catch (error) {
@@ -112,7 +134,7 @@ export const refresh = async (req, res) => {
     const { userId, raw: nextRaw } = await rotateRefreshToken(raw, clientMeta(req));
 
     const { rows } = await pool.query(
-      "SELECT id, name, email, role FROM auth_users WHERE id = $1",
+      "SELECT id, name, email, role, clinic_id, is_owner FROM auth_users WHERE id = $1",
       [userId]
     );
     if (rows.length === 0) {
@@ -152,7 +174,7 @@ export const logout = async (req, res) => {
 export const me = async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, name, email, role, specialization FROM auth_users WHERE id = $1",
+      "SELECT id, name, email, role, clinic_id, is_owner, specialization FROM auth_users WHERE id = $1",
       [req.user.id]
     );
     if (result.rowCount === 0) {
