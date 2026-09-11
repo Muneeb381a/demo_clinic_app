@@ -30,6 +30,8 @@ import {
 } from "react-icons/fa";
 import { fetchWithRetry } from "../utils/api";
 import { CustomErrorBoundary } from "../utils/CustomErrorBoundary";
+import { getUser } from "../utils/auth";
+import { isDoctor } from "./RequireRole";
 
 // Simple in-memory cache with TTL
 const cache = {
@@ -129,23 +131,31 @@ const SuccessModal = ({ isOpen, onClose, onAddConsultation, onAddTest }) => {
             <h3 className="text-2xl font-bold text-gray-800 mb-4 pr-8">
               Patient Registered Successfully
             </h3>
-            <p className="text-gray-600 mb-6">
-              The patient has been added to the system. What would you like to do next?
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button
-                onClick={handleAddConsultation}
-                className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold cursor-pointer transition-colors"
-              >
-                Add Consultation
-              </button>
-              <button
-                onClick={handleAddTest}
-                className="flex-1 bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 font-semibold cursor-pointer transition-colors"
-              >
-                Add Tests
-              </button>
-            </div>
+            {isDoctor(getUser()) ? (
+              <>
+                <p className="text-gray-600 mb-6">
+                  The patient has been added to the system. What would you like to do next?
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button
+                    onClick={handleAddConsultation}
+                    className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold cursor-pointer transition-colors"
+                  >
+                    Add Consultation
+                  </button>
+                  <button
+                    onClick={handleAddTest}
+                    className="flex-1 bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 font-semibold cursor-pointer transition-colors"
+                  >
+                    Add Tests
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-gray-600 mb-6">
+                The patient has been added to the system. A doctor can now start their consultation.
+              </p>
+            )}
             <button
               onClick={handleClose}
               className="mt-4 text-gray-600 hover:text-gray-800 font-semibold w-full text-center py-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -210,14 +220,16 @@ const ConsultationItem = React.memo(
                 <FaEye className="text-blue-600 hover:text-blue-800 text-xl cursor-pointer" />
               )}
             </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => handleEditClick(consultation.consultation_id)}
-              title="Edit Consultation"
-            >
-              <FaEdit className="text-green-600 hover:text-green-800 text-xl cursor-pointer" />
-            </motion.button>
+            {isDoctor(getUser()) && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleEditClick(consultation.consultation_id)}
+                title="Edit Consultation"
+              >
+                <FaEdit className="text-green-600 hover:text-green-800 text-xl cursor-pointer" />
+              </motion.button>
+            )}
           </div>
         )}
       </div>
@@ -1397,50 +1409,52 @@ const PatientSearch = () => {
                   ))}
                 </div>
 
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex justify-center"
-                >
-                  <motion.button
-                    whileHover={{
-                      scale: 1.02,
-                      background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
-                      boxShadow: "0 4px 14px rgba(124, 58, 237, 0.25)",
-                    }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleAddConsultation}
-                    disabled={
-                      state.isAddingConsultation || state.blockNavigation
-                    }
-                    className={`relative bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl shadow-lg transition-all flex items-center gap-3 w-full md:w-auto justify-center overflow-hidden cursor-pointer ${
-                      state.isAddingConsultation || state.blockNavigation
-                        ? "opacity-80 cursor-not-allowed"
-                        : ""
-                    }`}
+                {isDoctor(getUser()) && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex justify-center"
                   >
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-opacity">
-                      <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white/30 opacity-40 animate-shine" />
-                    </div>
-                    {state.isAddingConsultation ? (
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          ease: "linear",
-                        }}
-                      >
-                        <FaSpinner className="w-5 h-5 text-white" />
-                      </motion.div>
-                    ) : (
-                      <FaPlus className="w-5 h-5 text-white" />
-                    )}
-                    <span className="font-semibold tracking-wide">
-                      New Consultation
-                    </span>
-                  </motion.button>
-                </motion.div>
+                    <motion.button
+                      whileHover={{
+                        scale: 1.02,
+                        background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                        boxShadow: "0 4px 14px rgba(124, 58, 237, 0.25)",
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleAddConsultation}
+                      disabled={
+                        state.isAddingConsultation || state.blockNavigation
+                      }
+                      className={`relative bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl shadow-lg transition-all flex items-center gap-3 w-full md:w-auto justify-center overflow-hidden cursor-pointer ${
+                        state.isAddingConsultation || state.blockNavigation
+                          ? "opacity-80 cursor-not-allowed"
+                          : ""
+                      }`}
+                    >
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-opacity">
+                        <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white/30 opacity-40 animate-shine" />
+                      </div>
+                      {state.isAddingConsultation ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            duration: 1,
+                            repeat: Infinity,
+                            ease: "linear",
+                          }}
+                        >
+                          <FaSpinner className="w-5 h-5 text-white" />
+                        </motion.div>
+                      ) : (
+                        <FaPlus className="w-5 h-5 text-white" />
+                      )}
+                      <span className="font-semibold tracking-wide">
+                        New Consultation
+                      </span>
+                    </motion.button>
+                  </motion.div>
+                )}
               </div>
 
               <div>

@@ -19,6 +19,7 @@ import LoginPage from "./pages/LoginPage";
 import PlatformAdminPage from "./pages/PlatformAdminPage";
 import ClinicStaffPage from "./pages/ClinicStaffPage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
+import RequireRole, { isDoctor, isOwner } from "./components/RequireRole";
 import { bootstrapSession, getUser, logout as logoutSession } from "./utils/auth";
 import FullPageLoader from "./pages/FullPageLoader";
 
@@ -86,12 +87,27 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/patients/:patientId" element={<PatientSearch />} />
         <Route path="/patients/new" element={<PatientSearch />} />
-        <Route path="/patients/:patientId/consultation" element={<PatientConsultation />} />
+        <Route
+          path="/patients/:patientId/consultation"
+          element={<RequireRole allow={isDoctor}><PatientConsultation /></RequireRole>}
+        />
         <Route path="/patients/:patientId/history" element={<PatientHistory />} />
-        <Route path="/patients/:patientId/consultations/:consultationId/edit" element={<EditConsultation />} />
-        <Route path="/patients/:patientId/consultations/new" element={<PatientConsultation />} />
-        <Route path="/patients/:patientId/tests/new" element={<AddTestForm />} />
-        <Route path="/staff" element={<ClinicStaffPage />} />
+        <Route
+          path="/patients/:patientId/consultations/:consultationId/edit"
+          element={<RequireRole allow={isDoctor}><EditConsultation /></RequireRole>}
+        />
+        <Route
+          path="/patients/:patientId/consultations/new"
+          element={<RequireRole allow={isDoctor}><PatientConsultation /></RequireRole>}
+        />
+        <Route
+          path="/patients/:patientId/tests/new"
+          element={<RequireRole allow={isDoctor}><AddTestForm /></RequireRole>}
+        />
+        <Route
+          path="/staff"
+          element={<RequireRole allow={isOwner}><ClinicStaffPage /></RequireRole>}
+        />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
 
