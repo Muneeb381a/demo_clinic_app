@@ -16,7 +16,8 @@ import AddTestForm from "./components/AddTestForm";
 import DashboardPage from "./pages/DashboardPage";
 import FloatingChatbot from "./components/FloatingChatbot";
 import LoginPage from "./pages/LoginPage";
-import { bootstrapSession, logout as logoutSession } from "./utils/auth";
+import PlatformAdminPage from "./pages/PlatformAdminPage";
+import { bootstrapSession, getUser, logout as logoutSession } from "./utils/auth";
 import FullPageLoader from "./pages/FullPageLoader";
 
 const NavLink = ({ to, children, currentPath }) => {
@@ -98,6 +99,7 @@ const App = () => {
 
   // null = still checking the refresh cookie; true/false once known.
   const [authed, setAuthed] = useState(null);
+  const [role, setRole] = useState(null);
 
   useEffect(() => {
     // One-time: drop any legacy token from the old localStorage-based auth.
@@ -105,7 +107,10 @@ const App = () => {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("auth_user");
     } catch { /* ignore */ }
-    bootstrapSession().then((user) => setAuthed(!!user));
+    bootstrapSession().then((user) => {
+      setAuthed(!!user);
+      setRole(user?.role || null);
+    });
   }, []);
 
   useEffect(() => {
@@ -120,6 +125,7 @@ const App = () => {
   const handleLogout = async () => {
     await logoutSession();
     setAuthed(false);
+    setRole(null);
   };
 
   if (authed === null) {
@@ -127,7 +133,19 @@ const App = () => {
   }
 
   if (!authed) {
-    return <LoginPage onLogin={() => setAuthed(true)} />;
+    return (
+      <LoginPage
+        onLogin={() => {
+          setAuthed(true);
+          setRole(getUser()?.role || null);
+        }}
+      />
+    );
+  }
+
+  // Platform admins provision clinics — they don't use the clinical app.
+  if (role === "platform_admin") {
+    return <PlatformAdminPage onLogout={handleLogout} />;
   }
 
   return (

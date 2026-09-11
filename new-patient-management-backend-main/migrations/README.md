@@ -52,3 +52,14 @@ npm run seed         # demo data (optional)
 
 Run `npm run migrate` against the target database as a release step **before**
 the new server code goes live. It is not run automatically by the app.
+
+## Bootstrapping the platform admin
+
+There is exactly one platform-admin account (the app operator) — it creates
+clinics via `POST /api/platform/clinics` (see `src/controllers/platformController.js`).
+There is no signup flow for it; promote an existing `auth_users` row by hand
+after migrating:
+
+```sql
+UPDATE auth_users SET role = 'platform_admin', clinic_id = NULL WHERE email = 'you@example.com';
+```
