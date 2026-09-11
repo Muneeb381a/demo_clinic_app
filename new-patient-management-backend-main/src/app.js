@@ -193,6 +193,7 @@ import suggestionRoutes from "./routes/suggestionRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
 import platformRoutes from "./routes/platformRoutes.js";
 import clinicRoutes from "./routes/clinicRoutes.js";
+import publicRoutes from "./routes/publicRoutes.js";
 import { followUpReminderHandler } from "./cron/followUpReminder.js";
 import { requireAuth } from "./middleware/auth.js";
 import { audit } from "./middleware/audit.js";
@@ -234,6 +235,7 @@ const cacheHeaders = (maxAge, swr = maxAge * 2) => (req, res, next) => {
 
 // ── Public routes (no auth required) ───────────────────────────────────────
 app.use("/api/auth", authRoutes);
+app.use("/api/public", publicRoutes);
 
 // ── Protect everything below this line ─────────────────────────────────────
 app.use(requireAuth);

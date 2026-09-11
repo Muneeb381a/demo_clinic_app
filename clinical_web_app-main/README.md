@@ -57,3 +57,31 @@ npm install
 
 # Start development server
 npm run dev
+```
+
+## 🏢 Per-clinic subdomain branding (optional)
+
+The login page can greet a visitor by their clinic's name when it's opened
+from that clinic's own subdomain (e.g. `greenvalley.yourapp.com`) instead of
+the generic "Clinic Management" screen. It's inert by default — nothing
+changes until you've done all of the below, and it never affects who can log
+in as what; the account's `clinic_id` (set at login) is still the only real
+tenant boundary. Turning it on:
+
+1. **Own a real domain.** Wildcard subdomains don't work on Vercel's shared
+   `*.vercel.app` domain — you need your own (e.g. `yourapp.com`).
+2. **Add the domain in Vercel.** Project → Settings → Domains → add both
+   `yourapp.com` and `*.yourapp.com` (the wildcard). Vercel shows you the DNS
+   records to add at your registrar (typically an `A`/`ALIAS` record for the
+   apex and a `CNAME` for `*`).
+3. **Wait for DNS to propagate**, then confirm the wildcard domain shows
+   "Valid Configuration" in Vercel.
+4. **Set `VITE_APP_ROOT_DOMAIN=yourapp.com`** in the frontend's Vercel
+   project env vars (see `.env.example`) and redeploy — this is a build-time
+   var, so it only takes effect on the next build.
+5. Give each clinic's `slug` (set when the platform admin creates the
+   clinic — see `POST /api/platform/clinics` in the backend) a subdomain of
+   its own: `<slug>.yourapp.com`.
+
+That's it — no backend redeploy needed; `GET /api/public/clinics/by-slug/:slug`
+already exists and is inert-safe to call from anywhere.
