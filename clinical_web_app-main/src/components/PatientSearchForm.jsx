@@ -202,14 +202,14 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
   };
 
   return (
-    <div className="mb-8 bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative">
+    <div className="mb-8 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm relative">
       <div className="flex items-center gap-3 mb-6">
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-600 p-3 rounded-xl text-white shadow-md">
+        <div className="bg-gradient-to-br from-teal-600 to-indigo-600 p-3 rounded-xl text-white shadow-md">
           <span className="text-xl">🔍</span>
         </div>
         <div>
-          <h3 className="text-xl font-bold text-gray-900">Patient Lookup</h3>
-          <p className="text-sm text-gray-600 mt-1">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Patient Lookup</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
             Search existing patient records by mobile number or name
           </p>
         </div>
@@ -217,9 +217,9 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
             <span>📱</span>
-            Mobile Number or Name <span className="text-red-500">*</span>
+            Mobile Number or Name <span className="text-rose-500">*</span>
           </label>
 
           <div className="relative" ref={dropdownRef}>
@@ -228,10 +228,10 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
                 <input
                   {...register("search")}
                   placeholder="03001234567 or Patient Name"
-                  className={`w-full rounded-xl border-2 p-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all pr-12 ${
+                  className={`w-full rounded-xl border-2 p-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all pr-12 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 dark:focus:ring-offset-gray-800 ${
                     errors.search
-                      ? "border-red-300 focus:border-red-500 focus:ring-red-100"
-                      : "border-gray-200 focus:border-blue-500 focus:ring-blue-100"
+                      ? "border-rose-300 dark:border-rose-700 focus:border-rose-500 focus:ring-rose-100 dark:focus:ring-rose-900/40"
+                      : "border-gray-200 dark:border-gray-600 focus:border-teal-500 focus:ring-teal-100 dark:focus:ring-teal-900/40"
                   }`}
                   onFocus={() =>
                     !isTypingNumber && setShowDropdown(suggestions.length > 0)
@@ -252,7 +252,7 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                   {isSuggesting ? (
                     <div className="relative">
-                      <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-6 h-6 border-2 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   ) : (
                     searchInput && (
@@ -263,7 +263,7 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
                           setSuggestions([]);
                           setShowDropdown(false);
                         }}
-                        className="text-gray-400 hover:text-gray-600 transition-colors text-lg"
+                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors text-lg"
                         title="Clear search"
                       >
                         ✕
@@ -278,7 +278,7 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
                 disabled={
                   isSearching || isSuggesting || !isValidSearch(searchInput)
                 }
-                className="px-8 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl shadow-md hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-blue-600 disabled:hover:to-indigo-600"
+                className="px-8 bg-gradient-to-r from-teal-600 to-indigo-600 text-white font-semibold rounded-xl shadow-md hover:from-teal-700 hover:to-indigo-700 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-teal-600 disabled:hover:to-indigo-600"
               >
                 {isSearching ? (
                   <div className="flex items-center gap-2">
@@ -305,27 +305,27 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                    className="absolute top-full left-0 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden"
+                    className="absolute top-full left-0 mt-2 w-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden"
                   >
                     {isSuggesting ? (
                       <div className="p-6 flex flex-col items-center justify-center gap-4">
                         {/* Enhanced Loading Animation */}
                         <div className="relative">
                           {/* Outer pulsing ring */}
-                          <div className="w-16 h-16 border-4 border-blue-100 rounded-full"></div>
+                          <div className="w-16 h-16 border-4 border-teal-100 dark:border-teal-900/40 rounded-full"></div>
                           {/* Rotating gradient ring */}
-                          <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-blue-500 border-r-blue-400 rounded-full animate-spin-slow"></div>
+                          <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-teal-500 border-r-teal-400 rounded-full animate-spin-slow"></div>
                           {/* Pulsing center dot */}
                           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                            <div className="w-3 h-3 bg-teal-500 rounded-full animate-pulse"></div>
                           </div>
                         </div>
 
                         <div className="text-center">
-                          <p className="text-gray-700 font-medium">
+                          <p className="text-gray-700 dark:text-gray-300 font-medium">
                             Searching Patients
                           </p>
-                          <p className="text-gray-500 text-sm mt-1">
+                          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                             Looking for matching records...
                           </p>
                         </div>
@@ -333,31 +333,31 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
                         {/* Animated dots */}
                         <div className="flex items-center gap-2">
                           <div
-                            className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                            className="w-2 h-2 bg-teal-400 rounded-full animate-bounce"
                             style={{ animationDelay: "0ms" }}
                           ></div>
                           <div
-                            className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                            className="w-2 h-2 bg-teal-400 rounded-full animate-bounce"
                             style={{ animationDelay: "150ms" }}
                           ></div>
                           <div
-                            className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                            className="w-2 h-2 bg-teal-400 rounded-full animate-bounce"
                             style={{ animationDelay: "300ms" }}
                           ></div>
                         </div>
                       </div>
                     ) : suggestions.length === 0 ? (
-                      <div className="p-4 text-gray-500 text-center flex flex-col items-center gap-2">
+                      <div className="p-4 text-gray-500 dark:text-gray-400 text-center flex flex-col items-center gap-2">
                         <span className="text-2xl">😕</span>
                         <p>No matching patients found</p>
-                        <p className="text-sm text-gray-400">
+                        <p className="text-sm text-gray-400 dark:text-gray-500">
                           Try typing a different name
                         </p>
                       </div>
                     ) : (
                       <div className="max-h-60 overflow-y-auto">
-                        <div className="p-3 bg-gray-50 border-b border-gray-200">
-                          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+                        <div className="p-3 bg-gray-50 dark:bg-gray-700/40 border-b border-gray-100 dark:border-gray-700">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wide">
                             Found {suggestions.length} patient
                             {suggestions.length !== 1 ? "s" : ""}
                           </div>
@@ -369,16 +369,15 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
                               initial={{ opacity: 0, x: -10 }}
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ delay: index * 0.05 }}
-                              whileHover={{ backgroundColor: "#f0f9ff" }}
-                              className={`p-4 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors ${
-                                highlightedIndex === index ? "bg-blue-50" : ""
+                              className={`p-4 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors hover:bg-teal-50 dark:hover:bg-teal-900/20 ${
+                                highlightedIndex === index ? "bg-teal-50 dark:bg-teal-900/20" : ""
                               }`}
                               onClick={() => handleSuggestionClick(suggestion)}
                               onMouseEnter={() => setHighlightedIndex(index)}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                  <span className="text-blue-600 text-lg">
+                                  <span className="text-teal-600 dark:text-teal-400 text-lg">
                                     {suggestion.gender === "Female"
                                       ? "👩"
                                       : suggestion.gender === "Male"
@@ -386,20 +385,20 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
                                         : "👤"}
                                   </span>
                                   <div>
-                                    <div className="font-semibold text-gray-800">
+                                    <div className="font-semibold text-gray-800 dark:text-gray-100">
                                       {suggestion.name}
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-1">
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                       Age: {suggestion.age || "N/A"} •{" "}
                                       {suggestion.gender || "Not specified"}
                                     </div>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-sm font-medium text-gray-700">
+                                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                     {formatMobile(suggestion.mobile)}
                                   </div>
-                                  <div className="text-xs text-gray-500 mt-1">
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                     Click to select →
                                   </div>
                                 </div>
@@ -420,12 +419,12 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg"
+            className="flex items-center gap-3 p-4 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded-xl"
           >
-            <span className="text-red-600 text-xl">⚠️</span>
+            <span className="text-rose-600 text-xl">⚠️</span>
             <div>
-              <p className="text-red-700 font-medium">Invalid Input</p>
-              <p className="text-red-600 text-sm mt-1">
+              <p className="text-rose-700 dark:text-rose-400 font-medium">Invalid Input</p>
+              <p className="text-rose-600 dark:text-rose-400 text-sm mt-1">
                 {errors.search.message}
               </p>
             </div>
@@ -434,14 +433,14 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
 
         {/* Input Type Indicator */}
         {searchInput.trim() && (
-          <div className="flex items-center gap-2 text-sm text-gray-600">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <span>
               {isTypingNumber
                 ? "📱 Mobile number detected"
                 : "👤 Name detected"}
             </span>
             {isTypingNumber && searchInput.trim().length < 10 && (
-              <span className="text-amber-600">
+              <span className="text-amber-600 dark:text-amber-400">
                 ({10 - searchInput.trim().length} more digits needed)
               </span>
             )}
@@ -449,12 +448,12 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
         )}
 
         {/* Search Tips */}
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="p-4 bg-teal-50 dark:bg-teal-900/20 rounded-xl border border-teal-100 dark:border-teal-800">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-blue-600">💡</span>
-            <p className="text-sm font-medium text-blue-800">Search Tips:</p>
+            <span className="text-teal-600 dark:text-teal-400">💡</span>
+            <p className="text-sm font-medium text-teal-800 dark:text-teal-300">Search Tips:</p>
           </div>
-          <ul className="text-sm text-blue-700 space-y-1">
+          <ul className="text-sm text-teal-700 dark:text-teal-400 space-y-1">
             <li className="flex items-center gap-2">
               <span>📱</span>
               Enter 10-11 digit mobile number (e.g., 03001234567)
@@ -480,53 +479,53 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="absolute inset-0 bg-white/90 backdrop-blur-sm rounded-xl flex items-center justify-center z-40"
+          className="absolute inset-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-2xl flex items-center justify-center z-40"
         >
           <div className="text-center max-w-md p-8">
             {/* Multi-layered spinner */}
             <div className="relative mx-auto mb-6">
               {/* Outer static ring */}
-              <div className="w-20 h-20 border-4 border-blue-100 rounded-full"></div>
+              <div className="w-20 h-20 border-4 border-teal-100 dark:border-teal-900/40 rounded-full"></div>
 
               {/* Rotating ring with gradient */}
-              <div className="absolute top-0 left-0 w-20 h-20 border-4 border-transparent border-t-blue-500 border-r-blue-400 rounded-full animate-spin-slow"></div>
+              <div className="absolute top-0 left-0 w-20 h-20 border-4 border-transparent border-t-teal-500 border-r-teal-400 rounded-full animate-spin-slow"></div>
 
               {/* Inner rotating ring */}
               <div className="absolute top-2 left-2 right-2 bottom-2 border-4 border-transparent border-b-indigo-500 border-l-indigo-400 rounded-full animate-spin-slow-reverse"></div>
 
               {/* Pulsing center */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="w-4 h-4 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full animate-pulse"></div>
+                <div className="w-4 h-4 bg-gradient-to-r from-teal-500 to-indigo-500 rounded-full animate-pulse"></div>
               </div>
             </div>
 
-            <h3 className="text-xl font-bold text-gray-800 mb-2">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">
               Searching Patient Database
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               Please wait while we find matching records...
             </p>
 
             {/* Animated progress dots */}
             <div className="flex justify-center gap-2 mb-4">
               <div
-                className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                className="w-2 h-2 bg-teal-400 rounded-full animate-bounce"
                 style={{ animationDelay: "0ms" }}
               ></div>
               <div
-                className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                className="w-2 h-2 bg-teal-400 rounded-full animate-bounce"
                 style={{ animationDelay: "200ms" }}
               ></div>
               <div
-                className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"
+                className="w-2 h-2 bg-teal-400 rounded-full animate-bounce"
                 style={{ animationDelay: "400ms" }}
               ></div>
             </div>
 
             {/* Simulated progress bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2 mb-4 overflow-hidden">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4 overflow-hidden">
               <motion.div
-                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500"
+                className="h-full bg-gradient-to-r from-teal-500 to-indigo-500"
                 initial={{ width: "10%" }}
                 animate={{ width: ["10%", "90%", "10%"] }}
                 transition={{
@@ -537,8 +536,8 @@ const PatientSearchForm = ({ onSearch, isSearching }) => {
               />
             </div>
 
-            <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-              <span className="text-blue-500">🔍</span>
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-teal-500">🔍</span>
               <span>Searching in progress...</span>
             </div>
           </div>
