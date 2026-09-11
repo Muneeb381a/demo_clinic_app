@@ -44,6 +44,15 @@ jobs:
     defaults:
       run:
         working-directory: new-patient-management-backend-main
+    env:
+      # src/models/db.js throws at import time if this is unset, and several
+      # unit tests (e.g. refreshTokens.test.js, scope.test.js) transitively
+      # import it just for the `pool` export they never actually call in
+      # this job (no Postgres service here — that's the separate
+      # `migrations` job below). A placeholder satisfies the presence check
+      # without needing a real database; `pg`'s Pool doesn't connect until
+      # first query.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_placeholder
     steps:
       - uses: actions/checkout@v4
 
