@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash, FaUserDoctor, FaCalendarCheck, FaFileWaveform } from "react-icons/fa6";
 import { login } from "../utils/auth";
+import { fetchWithRetry } from "../utils/api";
+import { getSubdomainSlug } from "../utils/tenant";
 
 const FEATURES = [
   { icon: FaUserDoctor, label: "One record per patient, shared across your team" },
@@ -15,6 +17,26 @@ const LoginPage = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Per-clinic subdomain branding — inert (stays null) until the app is
+  // deployed under a real wildcard domain; see src/utils/tenant.js.
+  const [clinicName, setClinicName] = useState(null);
+
+  useEffect(() => {
+    const slug = getSubdomainSlug();
+    if (!slug) return;
+    fetchWithRetry(
+      "get",
+      `/api/public/clinics/by-slug/${slug}`,
+      `clinic-branding:${slug}`,
+      null,
+      (data) => data?.clinic?.name || null
+    )
+      .then(setClinicName)
+      .catch(() => {}); // unknown/suspended slug — fall back to generic branding
+  }, []);
+
+  const brandName = clinicName || "Clinic Management";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,9 +68,9 @@ const LoginPage = ({ onLogin }) => {
           className="relative flex items-center gap-3"
         >
           <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center font-bold text-lg">
-            C
+            {brandName.charAt(0).toUpperCase()}
           </div>
-          <span className="text-lg font-semibold tracking-wide">Clinic Management</span>
+          <span className="text-lg font-semibold tracking-wide">{brandName}</span>
         </motion.div>
 
         <motion.div
@@ -91,16 +113,16 @@ const LoginPage = ({ onLogin }) => {
         >
           <div className="lg:hidden flex items-center gap-2 mb-8 justify-center">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-              C
+              {brandName.charAt(0).toUpperCase()}
             </div>
-            <span className="font-semibold text-gray-800 dark:text-gray-100">Clinic Management</span>
+            <span className="font-semibold text-gray-800 dark:text-gray-100">{brandName}</span>
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
             Welcome back
           </h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
-            Sign in to continue to your clinic
+            {clinicName ? `Sign in to continue to ${clinicName}` : "Sign in to continue to your clinic"}
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">

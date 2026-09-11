@@ -573,6 +573,18 @@ header, which is what Vercel Cron actually sends.
 
 ---
 
+### Public Endpoints
+
+No authentication — safe for any unidentified caller. Used by the login
+page's per-clinic subdomain branding (see the frontend's `src/utils/tenant.js`
+and `.env.example`'s `VITE_APP_ROOT_DOMAIN`); inert until that's configured.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/public/clinics/by-slug/:slug` | Returns `{ name, slug }` for an active clinic, 404 otherwise (including suspended clinics — never confirms a suspended/unknown slug exists) |
+
+---
+
 ### System Endpoints
 
 | Method | Endpoint | Description |
@@ -604,6 +616,7 @@ The API uses **JWT Bearer token** authentication.
 - `GET /ping`
 - `GET /` (root)
 - `GET /api/cron/*` (protected by `CRON_SECRET` instead)
+- `GET /api/public/*` (clinic branding lookup — display-only, no sensitive data)
 
 **Role-based access:**
 
