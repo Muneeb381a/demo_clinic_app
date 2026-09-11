@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useNavigate, useLocation, matchPath } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import {
   fetchSymptoms,
@@ -17,6 +17,8 @@ import DashboardPage from "./pages/DashboardPage";
 import FloatingChatbot from "./components/FloatingChatbot";
 import LoginPage from "./pages/LoginPage";
 import PlatformAdminPage from "./pages/PlatformAdminPage";
+import ClinicStaffPage from "./pages/ClinicStaffPage";
+import AcceptInvitePage from "./pages/AcceptInvitePage";
 import { bootstrapSession, getUser, logout as logoutSession } from "./utils/auth";
 import FullPageLoader from "./pages/FullPageLoader";
 
@@ -60,6 +62,11 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
             </div>
             <div className="flex items-center gap-3">
               <TimeGreeting locale="en-PK" timeZone="Asia/Karachi" />
+              {getUser()?.is_owner && (
+                <NavLink to="/staff" currentPath={location.pathname}>
+                  Staff
+                </NavLink>
+              )}
               <button
                 onClick={onLogout}
                 className="flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 border border-gray-200 dark:border-gray-600 hover:border-red-300 dark:hover:border-red-500 px-3 py-1.5 rounded-lg transition-colors"
@@ -84,6 +91,7 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
         <Route path="/patients/:patientId/consultations/:consultationId/edit" element={<EditConsultation />} />
         <Route path="/patients/:patientId/consultations/new" element={<PatientConsultation />} />
         <Route path="/patients/:patientId/tests/new" element={<AddTestForm />} />
+        <Route path="/staff" element={<ClinicStaffPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
 
@@ -93,6 +101,8 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
 };
 
 const App = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => {
     try { return localStorage.getItem("darkMode") === "true"; } catch { return false; }
   });
@@ -127,6 +137,22 @@ const App = () => {
     setAuthed(false);
     setRole(null);
   };
+
+  // Public regardless of auth state — a brand-new staff member has no
+  // account yet, and an already-logged-in owner might open their own link.
+  const joinMatch = matchPath("/join/:token", location.pathname);
+  if (joinMatch) {
+    return (
+      <AcceptInvitePage
+        token={joinMatch.params.token}
+        onAccepted={() => {
+          setAuthed(true);
+          setRole(getUser()?.role || null);
+          navigate("/", { replace: true });
+        }}
+      />
+    );
+  }
 
   if (authed === null) {
     return <FullPageLoader isLoading />;
