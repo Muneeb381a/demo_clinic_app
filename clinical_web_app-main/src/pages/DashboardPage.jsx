@@ -130,7 +130,7 @@ const DashboardPage = () => {
                 Refresh
               </button>
               <button
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/patients")}
                 className="flex items-center gap-2 bg-white text-teal-700 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-teal-50 transition-colors shadow-sm"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -404,9 +404,9 @@ const DashboardPage = () => {
         {/* ── Quick Actions ──────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Search Patient", icon: "🔍", path: "/" },
+            { label: "Search Patient", icon: "🔍", path: "/patients" },
             { label: "Add Patient", icon: "➕", path: "/patients/new" },
-            { label: "Today's Schedule", icon: "📅", path: "/" },
+            { label: "Today's Schedule", icon: "📅", path: "/patients" },
             { label: "Refresh Stats", icon: "🔄", action: handleRefresh },
           ].map(({ label, icon, path, action }) => (
             <button

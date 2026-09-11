@@ -169,18 +169,18 @@ const AddPatientForm = ({ searchedMobile, onSuccess }) => {
   ];
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
       <ToastContainer />
-      
+
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b">
+      <div className="bg-gradient-to-r from-teal-50 to-indigo-50 dark:from-gray-700/60 dark:to-gray-700/30 p-6 border-b border-gray-100 dark:border-gray-700">
         <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-br from-blue-500 to-indigo-500 p-2 rounded-lg">
+          <div className="bg-gradient-to-br from-teal-600 to-indigo-600 p-2 rounded-lg">
             <span className="text-white text-xl">👨‍⚕️</span>
           </div>
           <div>
-            <h3 className="text-xl font-bold text-gray-900">New Patient Registration</h3>
-            <p className="text-gray-600 text-sm mt-1">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">New Patient Registration</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
               Fill in the patient details below to create a new record
             </p>
           </div>
@@ -189,14 +189,14 @@ const AddPatientForm = ({ searchedMobile, onSuccess }) => {
 
       {/* Success Message */}
       {success && submittedData && (
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 mx-6 mt-6 rounded-lg border border-green-200 animate-fadeIn">
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 mx-6 mt-6 rounded-xl border border-emerald-200 dark:border-emerald-800 animate-fadeIn">
           <div className="flex items-center gap-3">
-            <div className="bg-green-100 p-2 rounded-full">
-              <span className="text-green-600 text-lg">✅</span>
+            <div className="bg-emerald-100 dark:bg-emerald-900/40 p-2 rounded-full">
+              <span className="text-emerald-600 dark:text-emerald-400 text-lg">✅</span>
             </div>
             <div className="flex-1">
-              <h4 className="font-semibold text-green-800">Registration Successful!</h4>
-              <p className="text-green-700 text-sm mt-1">
+              <h4 className="font-semibold text-emerald-800 dark:text-emerald-300">Registration Successful!</h4>
+              <p className="text-emerald-700 dark:text-emerald-400 text-sm mt-1">
                 {submittedData.name} (Age: {submittedData.age}, {submittedData.gender}) has been registered successfully.
               </p>
             </div>
@@ -211,12 +211,12 @@ const AddPatientForm = ({ searchedMobile, onSuccess }) => {
             
             return (
               <div key={field.name} className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <span className="text-gray-500">{field.icon}</span>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <span className="text-gray-500 dark:text-gray-400">{field.icon}</span>
                   {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
+                  {field.required && <span className="text-rose-500">*</span>}
                 </label>
-                
+
                 <div className="relative">
                   <input
                     {...register(field.name)}
@@ -225,30 +225,30 @@ const AddPatientForm = ({ searchedMobile, onSuccess }) => {
                     min={field.min}
                     max={field.max}
                     readOnly={field.readOnly}
-                    className={`w-full pl-10 pr-4 py-3 rounded-lg border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+                    className={`w-full pl-10 pr-4 py-3 rounded-xl border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${
                       hasError
-                        ? "border-red-300 focus:border-red-500 focus:ring-red-100"
+                        ? "border-rose-300 dark:border-rose-700 focus:border-rose-500 focus:ring-rose-100 dark:focus:ring-rose-900/40"
                         : field.readOnly
-                        ? "border-gray-200 bg-gray-50 focus:border-gray-300 focus:ring-gray-100"
-                        : "border-gray-200 focus:border-blue-500 focus:ring-blue-100"
+                        ? "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 focus:border-gray-300 focus:ring-gray-100"
+                        : "border-gray-200 dark:border-gray-600 focus:border-teal-500 focus:ring-teal-100 dark:focus:ring-teal-900/40"
                     }`}
                   />
                   <span className={`absolute left-3 top-1/2 transform -translate-y-1/2 text-lg ${
-                    hasError ? "text-red-400" : "text-gray-400"
+                    hasError ? "text-rose-400" : "text-gray-400"
                   }`}>
                     {field.icon}
                   </span>
-                  
+
                   {hasError && (
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <span className="text-red-500 text-lg">⚠️</span>
+                      <span className="text-rose-500 text-lg">⚠️</span>
                     </div>
                   )}
                 </div>
-                
+
                 {hasError && (
-                  <p className="text-red-600 text-sm flex items-center gap-1 mt-1">
-                    <span className="text-red-500">⚠️</span>
+                  <p className="text-rose-600 dark:text-rose-400 text-sm flex items-center gap-1 mt-1">
+                    <span className="text-rose-500">⚠️</span>
                     {errors[field.name].message}
                   </p>
                 )}
@@ -258,24 +258,24 @@ const AddPatientForm = ({ searchedMobile, onSuccess }) => {
 
           {/* Gender Select */}
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-              <span className="text-gray-500">⚤</span>
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+              <span className="text-gray-500 dark:text-gray-400">⚤</span>
               Gender
-              <span className="text-red-500">*</span>
+              <span className="text-rose-500">*</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               {["Male", "Female", "Others"].map((gender) => {
                 const isSelected = watch("gender") === gender;
                 const genderIcon = gender === "Male" ? "👨" : gender === "Female" ? "👩" : "👤";
-                
+
                 return (
                   <label
                     key={gender}
                     className={`
-                      relative flex items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all
-                      ${isSelected 
-                        ? "border-blue-500 bg-blue-50 text-blue-700" 
-                        : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                      relative flex items-center justify-center gap-2 p-3 rounded-xl border-2 cursor-pointer transition-all
+                      ${isSelected
+                        ? "border-teal-500 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
+                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/40 text-gray-700 dark:text-gray-300"
                       }
                     `}
                   >
@@ -288,7 +288,7 @@ const AddPatientForm = ({ searchedMobile, onSuccess }) => {
                     <span className="text-lg">{genderIcon}</span>
                     <span className="font-medium">{gender}</span>
                     {isSelected && (
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-teal-500 rounded-full flex items-center justify-center">
                         <span className="text-white text-xs">✓</span>
                       </div>
                     )}
@@ -300,17 +300,17 @@ const AddPatientForm = ({ searchedMobile, onSuccess }) => {
         </div>
 
         {/* Form Actions */}
-        <div className="mt-8 pt-6 border-t border-gray-100">
+        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-700">
           <button
             type="submit"
             disabled={loading || !isValid || !isDirty}
             className={`
-              w-full py-4 px-6 rounded-xl font-semibold text-white shadow-lg
+              w-full py-4 px-6 rounded-xl font-semibold text-white shadow-md
               transition-all duration-300 transform hover:-translate-y-0.5
               flex items-center justify-center gap-3
               ${loading || !isValid || !isDirty
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
+                ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed"
+                : "bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-700 hover:to-indigo-700 hover:shadow-lg"
               }
             `}
           >
@@ -327,9 +327,9 @@ const AddPatientForm = ({ searchedMobile, onSuccess }) => {
               </>
             )}
           </button>
-          
+
           {(!isValid || !isDirty) && !loading && (
-            <p className="text-center text-gray-500 text-sm mt-3">
+            <p className="text-center text-gray-500 dark:text-gray-400 text-sm mt-3">
               Fill in all required fields to enable registration
             </p>
           )}
@@ -337,19 +337,19 @@ const AddPatientForm = ({ searchedMobile, onSuccess }) => {
 
         {/* Form Summary */}
         {isDirty && (
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h4 className="font-medium text-gray-700 mb-2 flex items-center gap-2">
+          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-200 dark:border-gray-700">
+            <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
               <span>📋</span> Registration Summary
             </h4>
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="text-gray-600">Name:</div>
-              <div className="font-medium">{watch("name") || "Not provided"}</div>
-              <div className="text-gray-600">Age:</div>
-              <div className="font-medium">{watch("age") || "Not provided"}</div>
-              <div className="text-gray-600">Gender:</div>
-              <div className="font-medium">{watch("gender") || "Not provided"}</div>
-              <div className="text-gray-600">Mobile:</div>
-              <div className="font-medium">{watch("mobile") || "Not provided"}</div>
+              <div className="text-gray-600 dark:text-gray-400">Name:</div>
+              <div className="font-medium text-gray-900 dark:text-gray-100">{watch("name") || "Not provided"}</div>
+              <div className="text-gray-600 dark:text-gray-400">Age:</div>
+              <div className="font-medium text-gray-900 dark:text-gray-100">{watch("age") || "Not provided"}</div>
+              <div className="text-gray-600 dark:text-gray-400">Gender:</div>
+              <div className="font-medium text-gray-900 dark:text-gray-100">{watch("gender") || "Not provided"}</div>
+              <div className="text-gray-600 dark:text-gray-400">Mobile:</div>
+              <div className="font-medium text-gray-900 dark:text-gray-100">{watch("mobile") || "Not provided"}</div>
             </div>
           </div>
         )}

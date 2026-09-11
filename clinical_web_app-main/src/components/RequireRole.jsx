@@ -26,10 +26,10 @@ const RequireRole = ({ allow, children }) => {
           You don't have access to this page
         </h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-          This area is restricted to your clinic's doctors.
+          This area is restricted based on your role in this clinic.
         </p>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/patients")}
           className="py-2 px-5 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors text-sm"
         >
           Back to patients

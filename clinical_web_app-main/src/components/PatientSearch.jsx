@@ -65,14 +65,14 @@ const debounce = (func, wait) => {
 
 // Simplified FullPageLoader
 const FullPageLoader = ({ message = "Processing your request" }) => (
-  <div className="fixed inset-0 z-[100] bg-gradient-to-br from-gray-50 to-gray-100/95 flex items-center justify-center">
-    <div className="text-center space-y-6 p-8 rounded-2xl bg-white/80 shadow-xl backdrop-blur-sm">
+  <div className="fixed inset-0 z-[100] bg-gradient-to-br from-gray-50 to-gray-100/95 dark:from-gray-900 dark:to-gray-900/95 flex items-center justify-center">
+    <div className="text-center space-y-6 p-8 rounded-2xl bg-white/80 dark:bg-gray-800/80 shadow-xl backdrop-blur-sm">
       <div className="relative mx-auto w-20 h-20">
-        <div className="absolute inset-0 border-4 border-transparent border-t-indigo-500 border-r-indigo-300 rounded-full animate-spin" />
+        <div className="absolute inset-0 border-4 border-transparent border-t-teal-500 border-r-teal-300 rounded-full animate-spin" />
         <div className="absolute inset-1.5 border-4 border-transparent border-t-indigo-400 border-l-indigo-200 rounded-full animate-spin [animation-duration:1.2s]" />
-        <div className="absolute inset-0 bg-indigo-100/20 rounded-full animate-pulse" />
+        <div className="absolute inset-0 bg-teal-100/20 dark:bg-teal-900/20 rounded-full animate-pulse" />
       </div>
-      <p className="text-xl font-medium text-gray-900 tracking-tight animate-pulse [animation-duration:2s]">
+      <p className="text-xl font-medium text-gray-900 dark:text-gray-100 tracking-tight animate-pulse [animation-duration:2s]">
         {message}
       </p>
     </div>
@@ -116,49 +116,49 @@ const SuccessModal = ({ isOpen, onClose, onAddConsultation, onAddTest }) => {
             initial={{ scale: 0.95, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.95, y: 20 }}
-            className="bg-white rounded-2xl p-8 max-w-md w-full shadow-xl relative"
+            className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md w-full shadow-xl relative border border-gray-100 dark:border-gray-700"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}
             <button
               onClick={handleClose}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
               aria-label="Close modal"
             >
               <FaTimes className="w-5 h-5" />
             </button>
 
-            <h3 className="text-2xl font-bold text-gray-800 mb-4 pr-8">
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-4 pr-8">
               Patient Registered Successfully
             </h3>
             {isDoctor(getUser()) ? (
               <>
-                <p className="text-gray-600 mb-6">
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
                   The patient has been added to the system. What would you like to do next?
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <button
                     onClick={handleAddConsultation}
-                    className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 font-semibold cursor-pointer transition-colors"
+                    className="flex-1 bg-teal-600 text-white px-4 py-3 rounded-xl hover:bg-teal-700 font-semibold cursor-pointer transition-colors"
                   >
                     Add Consultation
                   </button>
                   <button
                     onClick={handleAddTest}
-                    className="flex-1 bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 font-semibold cursor-pointer transition-colors"
+                    className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-xl hover:bg-indigo-700 font-semibold cursor-pointer transition-colors"
                   >
                     Add Tests
                   </button>
                 </div>
               </>
             ) : (
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
                 The patient has been added to the system. A doctor can now start their consultation.
               </p>
             )}
             <button
               onClick={handleClose}
-              className="mt-4 text-gray-600 hover:text-gray-800 font-semibold w-full text-center py-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="mt-4 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 font-semibold w-full text-center py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
             >
               Close
             </button>
@@ -182,15 +182,15 @@ const ConsultationItem = React.memo(
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white p-6 rounded-xl shadow-xs border border-gray-100 hover:border-purple-100 transition-all"
+      className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-teal-200 dark:hover:border-teal-700 hover:shadow-md transition-all"
     >
-      <div className="flex flex-wrap gap-4 justify-between items-start pb-4 border-b border-gray-100">
+      <div className="flex flex-wrap gap-4 justify-between items-start pb-4 border-b border-gray-100 dark:border-gray-700">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-50 rounded-xl">
-            <FaCalendarAlt className="text-xl text-blue-600" />
+          <div className="p-3 bg-teal-50 dark:bg-teal-900/30 rounded-xl">
+            <FaCalendarAlt className="text-xl text-teal-600 dark:text-teal-400" />
           </div>
           <div>
-            <h4 className="text-lg font-semibold text-gray-900">
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               {new Date(consultation.visit_date).toLocaleDateString("en-US", {
                 year: "numeric",
                 month: "long",
@@ -198,7 +198,7 @@ const ConsultationItem = React.memo(
               })}
             </h4>
             {consultation.follow_up_date && (
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 <span className="font-medium">Follow-up:</span>{" "}
                 {new Date(consultation.follow_up_date).toLocaleDateString()}
               </p>
@@ -215,9 +215,9 @@ const ConsultationItem = React.memo(
               title="Toggle Details"
             >
               {expandedSections[index] ? (
-                <FaChevronUp className="text-blue-600 hover:text-blue-800 text-xl cursor-pointer" />
+                <FaChevronUp className="text-teal-600 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300 text-xl cursor-pointer" />
               ) : (
-                <FaEye className="text-blue-600 hover:text-blue-800 text-xl cursor-pointer" />
+                <FaEye className="text-teal-600 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300 text-xl cursor-pointer" />
               )}
             </motion.button>
             {isDoctor(getUser()) && (
@@ -227,35 +227,35 @@ const ConsultationItem = React.memo(
                 onClick={() => handleEditClick(consultation.consultation_id)}
                 title="Edit Consultation"
               >
-                <FaEdit className="text-green-600 hover:text-green-800 text-xl cursor-pointer" />
+                <FaEdit className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 text-xl cursor-pointer" />
               </motion.button>
             )}
           </div>
         )}
       </div>
       {expandedSections[index] && (
-        <div className="space-y-6 pt-4 border-t border-gray-100">
+        <div className="space-y-6 pt-4 border-t border-gray-100 dark:border-gray-700">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <FaStethoscope className="text-gray-600" />
-              <h4 className="font-semibold text-gray-900">
+              <FaStethoscope className="text-gray-600 dark:text-gray-400" />
+              <h4 className="font-semibold text-gray-900 dark:text-gray-100">
                 Patient Information
               </h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <label className="text-sm font-medium text-gray-500">
+              <div className="bg-gray-50 dark:bg-gray-700/40 p-4 rounded-xl">
+                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   Name
                 </label>
-                <p className="mt-2 text-gray-900">
+                <p className="mt-2 text-gray-900 dark:text-gray-100">
                   {consultation.patient_name || "Not specified"}
                 </p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <label className="text-sm font-medium text-gray-500">
+              <div className="bg-gray-50 dark:bg-gray-700/40 p-4 rounded-xl">
+                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   Mobile
                 </label>
-                <p className="mt-2 text-gray-900">
+                <p className="mt-2 text-gray-900 dark:text-gray-100">
                   {consultation.mobile || "Not specified"}
                 </p>
               </div>
@@ -263,34 +263,34 @@ const ConsultationItem = React.memo(
           </div>
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <FaNotesMedical className="text-gray-600" />
-              <h4 className="font-semibold text-gray-900">
+              <FaNotesMedical className="text-gray-600 dark:text-gray-400" />
+              <h4 className="font-semibold text-gray-900 dark:text-gray-100">
                 Diagnosis & Symptoms
               </h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <label className="text-sm font-medium text-gray-500">
+              <div className="bg-gray-50 dark:bg-gray-700/40 p-4 rounded-xl">
+                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   Diagnosis
                 </label>
-                <p className="mt-2 text-gray-900">
+                <p className="mt-2 text-gray-900 dark:text-gray-100">
                   {consultation.neuro_diagnosis || "Not specified"}
                 </p>
               </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <label className="text-sm font-medium text-gray-500">
+              <div className="bg-gray-50 dark:bg-gray-700/40 p-4 rounded-xl">
+                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   Symptoms
                 </label>
-                <p className="mt-2 text-gray-900">
+                <p className="mt-2 text-gray-900 dark:text-gray-100">
                   {consultation.symptoms?.filter(Boolean).join(", ") ||
                     "No symptoms recorded"}
                 </p>
               </div>
-              <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
-                <label className="text-sm font-medium text-gray-500">
+              <div className="md:col-span-2 bg-gray-50 dark:bg-gray-700/40 p-4 rounded-xl">
+                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   Treatment Plan
                 </label>
-                <p className="mt-2 text-gray-900">
+                <p className="mt-2 text-gray-900 dark:text-gray-100">
                   {consultation.neuro_treatment_plan || "Not specified"}
                 </p>
               </div>
@@ -298,37 +298,37 @@ const ConsultationItem = React.memo(
           </div>
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-blue-100 rounded-lg">
-                <FaFlask className="text-xl text-blue-600" />
+              <div className="p-2.5 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
+                <FaFlask className="text-xl text-teal-600 dark:text-teal-400" />
               </div>
-              <h4 className="text-lg font-semibold text-gray-900">Tests</h4>
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Tests</h4>
             </div>
-            <p className="text-gray-800 font-medium leading-relaxed">
+            <p className="text-gray-800 dark:text-gray-200 font-medium leading-relaxed">
               {consultation.tests?.length > 0 ? (
                 <span className="inline-flex flex-wrap gap-2">
                   {consultation.tests.map((test) => (
                     <span
                       key={test.test_id}
-                      className="px-3 py-1 bg-blue-50 text-blue-800 rounded-full text-sm"
+                      className="px-3 py-1 bg-teal-50 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 rounded-full text-sm"
                     >
                       {test.test_name}
                     </span>
                   ))}
                 </span>
               ) : (
-                <span className="text-gray-500 italic">
+                <span className="text-gray-500 dark:text-gray-400 italic">
                   No tests prescribed
                 </span>
               )}
             </p>
           </div>
           {consultation.vital_signs?.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-gray-100">
+            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-red-100 rounded-lg">
-                  <FaHeartbeat className="text-xl text-red-600" />
+                <div className="p-2.5 bg-rose-100 dark:bg-rose-900/30 rounded-lg">
+                  <FaHeartbeat className="text-xl text-rose-600 dark:text-rose-400" />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-900">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   Vital Signs
                 </h4>
               </div>
@@ -337,7 +337,7 @@ const ConsultationItem = React.memo(
                   {consultation.vital_signs.map((vital, idx) => (
                     <div
                       key={idx}
-                      className="bg-white p-4 border-b border-gray-100 transition-all min-w-[300px]"
+                      className="bg-white dark:bg-gray-800 p-4 border-b border-gray-100 dark:border-gray-700 transition-all min-w-[300px]"
                     >
                       <div className="flex flex-col gap-3">
                         <div className="flex gap-2">
@@ -438,12 +438,12 @@ const ConsultationItem = React.memo(
             </div>
           )}
           {consultation.prescriptions?.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-gray-100">
+            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-purple-100 rounded-lg">
-                  <FaPills className="text-xl text-purple-600" />
+                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+                  <FaPills className="text-xl text-indigo-600 dark:text-indigo-400" />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-900">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   Medication Plan
                 </h4>
               </div>
@@ -451,52 +451,52 @@ const ConsultationItem = React.memo(
                 {consultation.prescriptions.map((prescription, idx) => (
                   <div
                     key={idx}
-                    className="bg-white p-5 rounded-2xl shadow-lg border border-gray-100"
+                    className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700"
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div className="max-w-[70%]">
-                        <h3 className="font-semibold text-gray-800 truncate text-lg">
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-100 truncate text-lg">
                           {prescription.brand_name || "Unnamed Medication"}
                         </h3>
-                        <p className="text-sm text-gray-500 truncate">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                           {prescription.generic_name}
                         </p>
                       </div>
-                      <span className="bg-purple-50 text-purple-700 px-3 py-1.5 rounded-full text-xs font-semibold">
+                      <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-full text-xs font-semibold">
                         {prescription.duration_en || "No duration"}
                       </span>
                     </div>
                     <div className="grid gap-3 text-sm">
                       <div>
-                        <label className="text-gray-500">Dosage:</label>
-                        <p className="text-gray-900">
+                        <label className="text-gray-500 dark:text-gray-400">Dosage:</label>
+                        <p className="text-gray-900 dark:text-gray-100">
                           {prescription.dosage_en || "N/A"}
                         </p>
-                        <p className="text-gray-600 font-urdu">
+                        <p className="text-gray-600 dark:text-gray-400 font-urdu">
                           {prescription.dosage_urdu}
                         </p>
                       </div>
                       <div>
-                        <label className="text-gray-500">Frequency:</label>
-                        <p className="text-gray-900">
+                        <label className="text-gray-500 dark:text-gray-400">Frequency:</label>
+                        <p className="text-gray-900 dark:text-gray-100">
                           {prescription.frequency_en || "N/A"}
                         </p>
-                        <p className="text-gray-600 font-urdu">
+                        <p className="text-gray-600 dark:text-gray-400 font-urdu">
                           {prescription.frequency_urdu}
                         </p>
                       </div>
                       <div>
-                        <label className="text-gray-500">Instructions:</label>
-                        <p className="text-gray-900">
+                        <label className="text-gray-500 dark:text-gray-400">Instructions:</label>
+                        <p className="text-gray-900 dark:text-gray-100">
                           {prescription.instructions_en || "N/A"}
                         </p>
-                        <p className="text-gray-600 font-urdu">
+                        <p className="text-gray-600 dark:text-gray-400 font-urdu">
                           {prescription.instructions_urdu}
                         </p>
                       </div>
-                      <div className="pt-3 border-t border-gray-100">
-                        <label className="text-gray-500">Prescribed On:</label>
-                        <p className="text-gray-600">
+                      <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+                        <label className="text-gray-500 dark:text-gray-400">Prescribed On:</label>
+                        <p className="text-gray-600 dark:text-gray-400">
                           {prescription.prescribed_at
                             ? new Date(
                                 prescription.prescribed_at
@@ -530,19 +530,19 @@ const ConsultationItem = React.memo(
             consultation.gcs_score ||
             consultation.power ||
             consultation.notes) && (
-            <div className="mt-6 pt-4 border-t border-gray-100">
+            <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-blue-100 rounded-lg">
-                  <FaBrain className="text-xl text-blue-600" />
+                <div className="p-2.5 bg-sky-100 dark:bg-sky-900/30 rounded-lg">
+                  <FaBrain className="text-xl text-sky-600 dark:text-sky-400" />
                 </div>
-                <h4 className="text-lg font-semibold text-gray-900">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                   Neurological Examination Findings
                 </h4>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(consultation.cranial_nerves || consultation.notes) && (
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h5 className="font-medium text-blue-800 mb-2">
+                  <div className="bg-sky-50 dark:bg-sky-900/20 p-4 rounded-xl">
+                    <h5 className="font-medium text-sky-800 dark:text-sky-300 mb-2">
                       Cranial Nerve Assessment
                     </h5>
                     <div className="space-y-2">
@@ -578,8 +578,8 @@ const ConsultationItem = React.memo(
                   consultation.muscle_tone ||
                   consultation.coordination ||
                   consultation.deep_tendon_reflexes) && (
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <h5 className="font-medium text-green-800 mb-2">
+                  <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl">
+                    <h5 className="font-medium text-emerald-800 dark:text-emerald-300 mb-2">
                       Motor Function Assessment
                     </h5>
                     <div className="space-y-2">
@@ -634,8 +634,8 @@ const ConsultationItem = React.memo(
                   consultation.romberg_test ||
                   consultation.plantar_reflex ||
                   consultation.straight_leg_raise_test) && (
-                  <div className="bg-orange-50 p-4 rounded-lg">
-                    <h5 className="font-medium text-orange-800 mb-2">
+                  <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl">
+                    <h5 className="font-medium text-amber-800 dark:text-amber-300 mb-2">
                       Special Tests
                     </h5>
                     <div className="space-y-2">
@@ -682,8 +682,8 @@ const ConsultationItem = React.memo(
                   consultation.kernig_sign ||
                   consultation.mmse_score ||
                   consultation.gcs_score) && (
-                  <div className="bg-purple-50 p-4 rounded-lg">
-                    <h5 className="font-medium text-purple-800 mb-2">
+                  <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl">
+                    <h5 className="font-medium text-indigo-800 dark:text-indigo-300 mb-2">
                       Additional Assessments
                     </h5>
                     <div className="space-y-2">
@@ -766,7 +766,7 @@ const PatientSearch = () => {
   };
 
   const handleBackToHome = useCallback(() => {
-    navigate("/");
+    navigate("/patients");
   }, [navigate]);
 
   const debouncedSearch = useCallback(
@@ -1260,7 +1260,7 @@ const PatientSearch = () => {
 
   return (
     <CustomErrorBoundary navigate={navigate}>
-      <div className="min-h-screen p-8 relative overflow-hidden isolate w-[90vw] mx-auto before:absolute before:inset-0 before:bg-gradient-to-br before:from-white before:-z-10">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-8">
         {state.isSearching && (
           <FullPageLoader message="Searching patient records..." />
         )}
@@ -1278,10 +1278,10 @@ const PatientSearch = () => {
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="mx-auto max-w-6xl rounded-2xl border border-white bg-white/95 backdrop-blur-sm p-8 shadow-2xl shadow-gray-100/30"
+          className="mx-auto max-w-6xl rounded-2xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 sm:p-8 shadow-sm"
         >
-          <h2 className="mb-6 border-b border-gray-200 pb-4 text-2xl font-bold text-gray-900">
-            <span className="bg-gradient-to-r from-blue-700 to-purple-700 bg-clip-text text-transparent">
+          <h2 className="mb-6 border-b border-gray-100 dark:border-gray-700 pb-4 text-2xl font-bold text-gray-900 dark:text-white">
+            <span className="bg-gradient-to-r from-teal-600 to-indigo-600 bg-clip-text text-transparent">
               Patient Consultation Portal
             </span>
           </h2>
@@ -1296,11 +1296,11 @@ const PatientSearch = () => {
             )}
 
           {state.patientsList.length > 0 && (
-            <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
                 Multiple Patients Found
               </h3>
-              <p className="text-sm text-gray-600 mb-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
                 Please select a patient from the list below:
               </p>
               <div className="space-y-4">
@@ -1308,18 +1308,18 @@ const PatientSearch = () => {
                   <motion.div
                     key={p.id || p._id}
                     whileHover={{ scale: 1.02 }}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100 hover:border-blue-200 cursor-pointer"
+                    className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/40 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-teal-200 dark:hover:border-teal-700 cursor-pointer transition-colors"
                     onClick={() => handlePatientSelect(p)}
                   >
                     <div>
-                      <p className="font-semibold text-gray-800">
+                      <p className="font-semibold text-gray-800 dark:text-gray-100">
                         {p.name || "Unknown"}
                       </p>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
                         {p.mobile || "No mobile"}
                       </p>
                     </div>
-                    <FaEye className="text-blue-600 text-xl" />
+                    <FaEye className="text-teal-600 dark:text-teal-400 text-xl" />
                   </motion.div>
                 ))}
               </div>
@@ -1327,7 +1327,7 @@ const PatientSearch = () => {
                 onClick={() =>
                   updateState({ patientsList: [], showAddPatient: true })
                 }
-                className="mt-4 text-blue-600 hover:text-blue-800 font-semibold"
+                className="mt-4 text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-semibold"
               >
                 Add New Patient
               </button>
@@ -1336,15 +1336,15 @@ const PatientSearch = () => {
 
           {state.patient && (
             <div className="space-y-8">
-              <div className="bg-gradient-to-br from-blue-50/80 to-purple-50/80 p-8 rounded-2xl border border-white/20 shadow-xl backdrop-blur-sm">
+              <div className="bg-gradient-to-br from-teal-50 to-indigo-50 dark:from-gray-700/60 dark:to-gray-700/30 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleBackToHome}
-                  className="mb-6 flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold transition-colors duration-200 shadow-sm hover:shadow-md cursor-pointer"
+                  className="mb-6 flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-xl hover:bg-teal-700 font-semibold transition-colors duration-200 shadow-sm hover:shadow-md cursor-pointer"
                 >
                   <FaArrowLeft className="text-lg" />
-                  Back to Home
+                  Back to Patients
                 </motion.button>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -1353,15 +1353,15 @@ const PatientSearch = () => {
                 >
                   <motion.div
                     whileHover={{ scale: 1.05, rotate: -5 }}
-                    className="p-4 bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-xl shadow-lg"
+                    className="p-4 bg-gradient-to-br from-teal-600 to-indigo-600 text-white rounded-xl shadow-md"
                   >
                     <FaStethoscope className="text-2xl" />
                   </motion.div>
                   <div>
-                    <p className="text-sm font-medium text-purple-600 mb-1">
+                    <p className="text-sm font-medium text-teal-600 dark:text-teal-400 mb-1">
                       Medical Record
                     </p>
-                    <h3 className="text-2xl font-bold text-gray-800 tracking-tight">
+                    <h3 className="text-2xl font-bold text-gray-800 dark:text-white tracking-tight">
                       Patient Profile
                     </h3>
                   </div>
@@ -1390,17 +1390,17 @@ const PatientSearch = () => {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="group bg-white/95 p-5 rounded-xl shadow-sm border border-white transition-all hover:border-purple-100 hover:shadow-md"
+                      className="group bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-all hover:border-teal-200 dark:hover:border-teal-700 hover:shadow-md"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                        <div className="p-2 bg-teal-50 dark:bg-teal-900/30 rounded-lg text-teal-600 dark:text-teal-400">
                           <item.icon className="text-lg" />
                         </div>
                         <div>
-                          <p className="text-xs font-semibold text-gray-500 tracking-wide mb-1">
+                          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 tracking-wide mb-1">
                             {item.label}
                           </p>
-                          <p className="text-lg font-semibold text-gray-800">
+                          <p className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                             {item.value}
                           </p>
                         </div>
@@ -1418,15 +1418,15 @@ const PatientSearch = () => {
                     <motion.button
                       whileHover={{
                         scale: 1.02,
-                        background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
-                        boxShadow: "0 4px 14px rgba(124, 58, 237, 0.25)",
+                        background: "linear-gradient(135deg, #0d9488, #4338ca)",
+                        boxShadow: "0 4px 14px rgba(67, 56, 202, 0.25)",
                       }}
                       whileTap={{ scale: 0.98 }}
                       onClick={handleAddConsultation}
                       disabled={
                         state.isAddingConsultation || state.blockNavigation
                       }
-                      className={`relative bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl shadow-lg transition-all flex items-center gap-3 w-full md:w-auto justify-center overflow-hidden cursor-pointer ${
+                      className={`relative bg-gradient-to-r from-teal-600 to-indigo-600 text-white px-8 py-4 rounded-xl shadow-md transition-all flex items-center gap-3 w-full md:w-auto justify-center overflow-hidden cursor-pointer ${
                         state.isAddingConsultation || state.blockNavigation
                           ? "opacity-80 cursor-not-allowed"
                           : ""
@@ -1459,17 +1459,20 @@ const PatientSearch = () => {
 
               <div>
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="p-3 bg-purple-600 text-white rounded-lg">
+                  <div className="p-3 bg-indigo-600 text-white rounded-lg">
                     <FaCalendarAlt className="text-2xl" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-800">
+                  <h3 className="text-2xl font-bold text-gray-800 dark:text-white">
                     Consultation History
                   </h3>
                 </div>
 
                 {filteredConsultations.length === 0 ? (
-                  <div className="text-center py-12 bg-gray-50 rounded-xl">
-                    <p className="text-gray-500 text-lg">
+                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-700/30 rounded-2xl border border-gray-100 dark:border-gray-700">
+                    <svg className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <p className="text-gray-500 dark:text-gray-400 text-lg">
                       No previous consultations found
                     </p>
                   </div>
@@ -1492,7 +1495,7 @@ const PatientSearch = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={loadMoreConsultations}
-                        className="mt-6 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold"
+                        className="mt-6 bg-teal-600 text-white px-6 py-3 rounded-xl hover:bg-teal-700 font-semibold"
                       >
                         Load More
                       </motion.button>
@@ -1509,7 +1512,7 @@ const PatientSearch = () => {
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-white p-8 rounded-xl border border-gray-100 shadow-xs"
+                className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm"
               >
                 <AddPatientForm
                   searchedMobile={state.searchedMobile}
