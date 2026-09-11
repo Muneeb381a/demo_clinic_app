@@ -16,10 +16,19 @@ const REFRESH_TTL_MS = REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000;
 const sha256 = (s) => crypto.createHash("sha256").update(s).digest("hex");
 const newRawToken = () => crypto.randomBytes(48).toString("base64url");
 
-/** Cookie options for the refresh token. Scoped to the auth path only. */
-export const refreshCookieOptions = () => ({
+/**
+ * Cookie options for the refresh token. Scoped to the auth path only.
+ *
+ * `secure` is derived from the actual request, not NODE_ENV: a cookie marked
+ * Secure is silently dropped by the browser over plain HTTP, so keying this
+ * off an env var that can be (mis)configured to "production" in local dev —
+ * as this project's own .env.example warns against — breaks login instead of
+ * hardening it. req.secure honours `X-Forwarded-Proto` once `trust proxy` is
+ * set (TRUST_PROXY=true on Vercel), so this is correct in both places.
+ */
+export const refreshCookieOptions = (req) => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: Boolean(req?.secure || req?.headers?.["x-forwarded-proto"] === "https"),
   sameSite: "lax",
   path: "/api/auth",
   maxAge: REFRESH_TTL_MS,
