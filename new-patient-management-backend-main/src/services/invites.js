@@ -45,7 +45,8 @@ export const issueInvite = async (clinicId, email, role, invitedBy, client = poo
 export const findPendingInvite = async (rawToken, client = pool) => {
   if (!rawToken) return null;
   const { rows } = await client.query(
-    `SELECT i.id, i.clinic_id, i.email, i.role, i.expires_at, i.accepted_at, c.name AS clinic_name
+    `SELECT i.id, i.clinic_id, i.email, i.role, i.expires_at, i.accepted_at,
+            c.name AS clinic_name, c.plan AS clinic_plan, c.features AS clinic_features
        FROM invites i JOIN clinics c ON c.id = i.clinic_id
       WHERE i.token_hash = $1`,
     [sha256(rawToken)]

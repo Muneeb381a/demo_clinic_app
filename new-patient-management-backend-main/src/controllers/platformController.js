@@ -6,18 +6,34 @@
 import { pool } from "../models/db.js";
 import bcrypt from "bcryptjs";
 import { cacheDel } from "../utils/cache.js";
+import { PLAN_PRESETS, FEATURE_KEYS, isValidPlan } from "../config/plans.js";
 
 const BCRYPT_ROUNDS = 12;
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
+// Only known keys survive into the DB — an unrecognized flag in the request
+// body is silently dropped rather than stored, so `clinics.features` never
+// drifts from what requireFeature() actually knows how to check.
+const sanitizeFeatures = (features) => {
+  if (!features || typeof features !== "object") return {};
+  const out = {};
+  for (const key of FEATURE_KEYS) {
+    if (key in features) out[key] = Boolean(features[key]);
+  }
+  return out;
+};
+
 /**
  * POST /api/platform/clinics
  * Creates a clinic and its first user (the owner) in one transaction.
- * Body: { name, slug, max_doctors?, max_receptionists?,
+ * Body: { name, slug, plan?, max_doctors?, max_receptionists?, features?,
  *         owner: { name, email, password, specialization? } }
+ * `plan` ('clinic' | 'hospital', default 'clinic') fills max_doctors/
+ * max_receptionists/features with its preset wherever the caller didn't
+ * explicitly pass one — see src/config/plans.js.
  */
 export const createClinic = async (req, res) => {
-  const { name, slug, max_doctors, max_receptionists, owner } = req.body;
+  const { name, slug, plan = "clinic", max_doctors, max_receptionists, features, owner } = req.body;
 
   if (!name || !slug) {
     return res.status(400).json({ success: false, message: "name and slug are required" });
@@ -28,6 +44,9 @@ export const createClinic = async (req, res) => {
       message: "slug must be lowercase letters, digits and hyphens only (e.g. 'green-valley-clinic')",
     });
   }
+  if (!isValidPlan(plan)) {
+    return res.status(400).json({ success: false, message: `plan must be one of: ${Object.keys(PLAN_PRESETS).join(", ")}` });
+  }
   if (!owner?.name || !owner?.email || !owner?.password) {
     return res.status(400).json({ success: false, message: "owner.name, owner.email and owner.password are required" });
   }
@@ -35,8 +54,10 @@ export const createClinic = async (req, res) => {
     return res.status(400).json({ success: false, message: "owner.password must be at least 8 characters" });
   }
 
-  const maxDoctors = Number.isInteger(max_doctors) && max_doctors > 0 ? max_doctors : 1;
-  const maxReceptionists = Number.isInteger(max_receptionists) && max_receptionists >= 0 ? max_receptionists : 0;
+  const preset = PLAN_PRESETS[plan];
+  const maxDoctors = Number.isInteger(max_doctors) && max_doctors > 0 ? max_doctors : preset.max_doctors;
+  const maxReceptionists = Number.isInteger(max_receptionists) && max_receptionists >= 0 ? max_receptionists : preset.max_receptionists;
+  const clinicFeatures = features !== undefined ? sanitizeFeatures(features) : preset.features;
 
   const client = await pool.connect();
   try {
@@ -49,9 +70,9 @@ export const createClinic = async (req, res) => {
     }
 
     const clinicRes = await client.query(
-      `INSERT INTO clinics (name, slug, max_doctors, max_receptionists)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [name, slug, maxDoctors, maxReceptionists]
+      `INSERT INTO clinics (name, slug, max_doctors, max_receptionists, plan, features)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [name, slug, maxDoctors, maxReceptionists, plan, JSON.stringify(clinicFeatures)]
     );
     const clinic = clinicRes.rows[0];
 
@@ -102,15 +123,24 @@ export const listClinics = async (req, res) => {
 
 /**
  * PATCH /api/platform/clinics/:id
- * Body: any of { name, max_doctors, max_receptionists, status }
- * status must be 'active' or 'suspended'.
+ * Body: any of { name, max_doctors, max_receptionists, status, plan, features }
+ * status must be 'active' or 'suspended'; plan must be a known preset name.
+ *
+ * `plan` re-applies that plan's *feature* defaults only (seat limits are
+ * never silently overwritten by a plan switch — a clinic that already
+ * negotiated a custom max_doctors keeps it). Pass `features` in the same
+ * request to override individual flags on top of the plan's defaults, or
+ * pass `features` alone (no `plan`) to toggle flags without changing plan.
  */
 export const updateClinic = async (req, res) => {
   const { id } = req.params;
-  const { name, max_doctors, max_receptionists, status } = req.body;
+  const { name, max_doctors, max_receptionists, status, plan, features } = req.body;
 
   if (status !== undefined && !["active", "suspended"].includes(status)) {
     return res.status(400).json({ success: false, message: "status must be 'active' or 'suspended'" });
+  }
+  if (plan !== undefined && !isValidPlan(plan)) {
+    return res.status(400).json({ success: false, message: `plan must be one of: ${Object.keys(PLAN_PRESETS).join(", ")}` });
   }
 
   const fields = [];
@@ -123,6 +153,21 @@ export const updateClinic = async (req, res) => {
   if (max_doctors !== undefined) set("max_doctors", max_doctors);
   if (max_receptionists !== undefined) set("max_receptionists", max_receptionists);
   if (status !== undefined) set("status", status);
+  if (plan !== undefined) set("plan", plan);
+
+  // features: plan's preset first, then an explicit `features` body merges
+  // on top of it (or of the clinic's current features, if `plan` wasn't
+  // also given) — a single-flag toggle never has to resend every flag.
+  if (plan !== undefined && features !== undefined) {
+    set("features", JSON.stringify({ ...PLAN_PRESETS[plan].features, ...sanitizeFeatures(features) }));
+  } else if (plan !== undefined) {
+    set("features", JSON.stringify(PLAN_PRESETS[plan].features));
+  } else if (features !== undefined) {
+    // No plan given — merge onto whatever's already stored, DB-side, since
+    // the current value isn't known here without an extra read.
+    values.push(JSON.stringify(sanitizeFeatures(features)));
+    fields.push(`features = features || $${values.length}`);
+  }
 
   if (fields.length === 0) {
     return res.status(400).json({ success: false, message: "No fields to update" });
@@ -137,7 +182,8 @@ export const updateClinic = async (req, res) => {
     if (!result.rows.length) {
       return res.status(404).json({ success: false, message: "Clinic not found" });
     }
-    await cacheDel(`clinic:status:${id}`); // requireActiveClinic caches this
+    await cacheDel(`clinic:status:${id}`);   // requireActiveClinic caches this
+    await cacheDel(`clinic:features:${id}`); // requireFeature caches this
     res.json({ success: true, clinic: result.rows[0] });
   } catch (error) {
     console.error("updateClinic error:", error.message);

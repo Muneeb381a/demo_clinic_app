@@ -5,7 +5,7 @@
 import { pool } from "../models/db.js";
 import bcrypt from "bcryptjs";
 import { findPendingInvite, markInviteAccepted } from "../services/invites.js";
-import { startSession } from "./authController.js";
+import { startSession, withClinicPlan } from "./authController.js";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -69,7 +69,11 @@ export const acceptInvite = async (req, res) => {
 
     await client.query("COMMIT");
 
-    const user = result.rows[0];
+    const user = withClinicPlan({
+      ...result.rows[0],
+      clinic_plan: invite.clinic_plan,
+      clinic_features: invite.clinic_features,
+    });
     const accessToken = await startSession(req, res, user);
     res.status(201).json({ success: true, accessToken, user });
   } catch (error) {
