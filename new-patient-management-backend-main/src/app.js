@@ -192,6 +192,7 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 import suggestionRoutes from "./routes/suggestionRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
 import platformRoutes from "./routes/platformRoutes.js";
+import clinicRoutes from "./routes/clinicRoutes.js";
 import { followUpReminderHandler } from "./cron/followUpReminder.js";
 import { requireAuth } from "./middleware/auth.js";
 import { audit } from "./middleware/audit.js";
@@ -245,6 +246,7 @@ app.use(audit);
 
 // ── Protected routes ────────────────────────────────────────────────────────
 app.use("/api/platform", platformRoutes);
+app.use("/api/clinic", clinicRoutes);
 app.use("/api/patients", patientRoutes);
 app.use("/api/consultations", consultationRoutes);
 app.use("/api/medicines", cacheHeaders(300), medicineRoutes);
