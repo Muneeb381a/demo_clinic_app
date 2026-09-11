@@ -1,6 +1,6 @@
 import { pool } from "../models/db.js";
 import { cacheGet, cacheSet, cacheDel } from "../utils/cache.js";
-import { isAdmin, patientOwned } from "../middleware/scope.js";
+import { isPlatformAdmin, patientOwned } from "../middleware/scope.js";
 
 const TEST_LIST_KEY = "tests:all";
 const TEST_TTL = 600; // 10 minutes
@@ -55,12 +55,12 @@ export const assignTestToConsultation = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    const consultationExists = isAdmin(req.user)
+    const consultationExists = isPlatformAdmin(req.user)
       ? await client.query("SELECT 1 FROM consultations WHERE id = $1", [consultation_id])
       : await client.query(
           `SELECT 1 FROM consultations c JOIN patients p ON p.id = c.patient_id
-            WHERE c.id = $1 AND p.doctor_id = $2`,
-          [consultation_id, req.user.id]
+            WHERE c.id = $1 AND p.clinic_id = $2`,
+          [consultation_id, req.user.clinic_id]
         );
     if (!consultationExists.rows.length) {
       await client.query("ROLLBACK");

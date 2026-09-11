@@ -184,28 +184,39 @@ async function seedTests(client) {
   console.log(`  ✓ ${TESTS.length} tests`);
 }
 
-async function seedDemoDoctor(client) {
+async function seedDemoClinic(client) {
+  const { rows } = await client.query(
+    `INSERT INTO clinics (name, slug, max_doctors, max_receptionists)
+     VALUES ('Demo Clinic', 'demo', 5, 5)
+     ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+     RETURNING id`
+  );
+  console.log("  ✓ Demo clinic  →  slug: demo");
+  return rows[0].id;
+}
+
+async function seedDemoDoctor(client, clinicId) {
   const hash = await bcrypt.hash("demo1234", 12);
   const { rows } = await client.query(
-    `INSERT INTO auth_users (name, email, password_hash, salt, role, specialization)
-     VALUES ($1,$2,$3,'',$4,$5)
-     ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name
+    `INSERT INTO auth_users (name, email, password_hash, salt, role, specialization, clinic_id, is_owner)
+     VALUES ($1,$2,$3,'',$4,$5,$6,true)
+     ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, clinic_id = EXCLUDED.clinic_id
      RETURNING id`,
-    ["Dr. Abdul Rauf", "demo@clinic.com", hash, "doctor", "Neurology"]
+    ["Dr. Abdul Rauf", "demo@clinic.com", hash, "doctor", "Neurology", clinicId]
   );
   console.log("  ✓ Demo doctor  →  email: demo@clinic.com  |  password: demo1234");
   return rows[0].id;
 }
 
-async function seedPatients(client, doctorId) {
+async function seedPatients(client, doctorId, clinicId) {
   const rows = [];
   for (const p of PATIENTS) {
     const mr_no = `MR-${uuidv4()}`;
     const r = await client.query(
-      `INSERT INTO patients (mobile, mr_no, name, age, gender, weight, height, doctor_id, checkup_date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,CURRENT_DATE - (RANDOM()*60)::int)
+      `INSERT INTO patients (mobile, mr_no, name, age, gender, weight, height, doctor_id, clinic_id, checkup_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,CURRENT_DATE - (RANDOM()*60)::int)
        ON CONFLICT DO NOTHING RETURNING id`,
-      [p.mobile, mr_no, p.name, p.age, p.gender, p.weight, p.height, doctorId]
+      [p.mobile, mr_no, p.name, p.age, p.gender, p.weight, p.height, doctorId, clinicId]
     );
     if (r.rows.length) rows.push({ id: r.rows[0].id, ...p });
   }
@@ -635,8 +646,9 @@ async function seed() {
     await seedMedicines(client);
     await seedSymptoms(client);
     await seedTests(client);
-    const doctorId = await seedDemoDoctor(client);
-    const patients = await seedPatients(client, doctorId);
+    const clinicId = await seedDemoClinic(client);
+    const doctorId = await seedDemoDoctor(client, clinicId);
+    const patients = await seedPatients(client, doctorId, clinicId);
     await seedConsultations(client, patients, doctorId);
     await seedNeuroOptions(client);
     await seedDiseaseGraph(client);

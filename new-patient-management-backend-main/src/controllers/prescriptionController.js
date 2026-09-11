@@ -1,5 +1,5 @@
 import { pool } from "../models/db.js";
-import { isAdmin, patientOwned, consultationOwned } from "../middleware/scope.js";
+import { isPlatformAdmin, patientOwned, consultationOwned } from "../middleware/scope.js";
 
 // export const createPrescription = async (req, res) => {
 //     try {
@@ -219,13 +219,13 @@ export const createPrescription = async (req, res) => {
     await client.query("BEGIN");
 
     // Single query: get patient_id and validate consultation is owned by the caller
-    const consultationQuery = isAdmin(req.user)
+    const consultationQuery = isPlatformAdmin(req.user)
       ? await client.query("SELECT patient_id FROM consultations WHERE id = $1", [consultation_id])
       : await client.query(
           `SELECT c.patient_id FROM consultations c
              JOIN patients p ON p.id = c.patient_id
-            WHERE c.id = $1 AND p.doctor_id = $2`,
-          [consultation_id, req.user.id]
+            WHERE c.id = $1 AND p.clinic_id = $2`,
+          [consultation_id, req.user.clinic_id]
         );
     if (consultationQuery.rowCount === 0) {
       await client.query("ROLLBACK");

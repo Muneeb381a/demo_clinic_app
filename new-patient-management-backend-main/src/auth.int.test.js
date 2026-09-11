@@ -7,7 +7,8 @@ const DB = process.env.INTEGRATION_DB_URL;
 const run = DB ? describe : describe.skip;
 
 run("auth: rotating refresh tokens (integration)", () => {
-  let request, app, pool;
+  let request, app, pool, bcrypt;
+  let clinic;
   const email = `auth-${Date.now()}@t.pk`;
   const password = "supersecret1";
 
@@ -25,13 +26,26 @@ run("auth: rotating refresh tokens (integration)", () => {
     ({ default: request } = await import("supertest"));
     ({ pool } = await import("./models/db.js"));
     ({ default: app } = await import("./app.js"));
+    ({ default: bcrypt } = await import("bcryptjs"));
 
-    await request(app).post("/api/auth/register").send({ name: "Auth Tester", email, password });
+    // /api/auth/register is platform-admin only now — seed the test account
+    // directly, the same way a clinic's owner would already exist.
+    const c = await pool.query(
+      `INSERT INTO clinics (name, slug) VALUES ('Auth Test Clinic', 'auth-test-${Date.now()}') RETURNING id`
+    );
+    clinic = c.rows[0].id;
+    const hash = await bcrypt.hash(password, 12);
+    await pool.query(
+      `INSERT INTO auth_users (name,email,password_hash,salt,role,clinic_id,is_owner)
+       VALUES ('Auth Tester',$1,$2,'','doctor',$3,true)`,
+      [email, hash, clinic]
+    );
   });
 
   afterAll(async () => {
     if (!pool) return;
     await pool.query("DELETE FROM auth_users WHERE email = $1", [email]);
+    await pool.query("DELETE FROM clinics WHERE id = $1", [clinic]);
     await pool.end();
   });
 

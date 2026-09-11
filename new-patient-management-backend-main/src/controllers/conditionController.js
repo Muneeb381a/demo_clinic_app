@@ -1,13 +1,13 @@
 import {pool} from "../models/db.js"
-import { patientOwned, isAdmin } from "../middleware/scope.js";
+import { patientOwned, isPlatformAdmin } from "../middleware/scope.js";
 
 // medical_conditions rows are owned through their patient.
 const conditionOwned = async (id, user) => {
-  const sql = isAdmin(user)
+  const sql = isPlatformAdmin(user)
     ? "SELECT 1 FROM medical_conditions WHERE id = $1"
     : `SELECT 1 FROM medical_conditions mc JOIN patients p ON p.id = mc.patient_id
-        WHERE mc.id = $1 AND p.doctor_id = $2`;
-  const { rowCount } = await pool.query(sql, isAdmin(user) ? [id] : [id, user.id]);
+        WHERE mc.id = $1 AND p.clinic_id = $2`;
+  const { rowCount } = await pool.query(sql, isPlatformAdmin(user) ? [id] : [id, user.clinic_id]);
   return rowCount > 0;
 };
 
