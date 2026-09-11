@@ -20,6 +20,7 @@ import PlatformAdminPage from "./pages/PlatformAdminPage";
 import ClinicStaffPage from "./pages/ClinicStaffPage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import RequireRole, { isDoctor, isOwner } from "./components/RequireRole";
+import { hasFeature } from "./utils/features";
 import { bootstrapSession, getUser, logout as logoutSession } from "./utils/auth";
 import FullPageLoader from "./pages/FullPageLoader";
 
@@ -125,7 +126,7 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      <FloatingChatbot />
+      {hasFeature(getUser(), "chatbot") && <FloatingChatbot />}
     </>
   );
 };

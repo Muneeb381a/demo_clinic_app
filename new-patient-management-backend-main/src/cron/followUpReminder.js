@@ -28,16 +28,19 @@ export const sendFollowUpReminders = async () => {
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().split("T")[0];
 
-  // Fetch all pending follow-ups for tomorrow in one query
+  // Fetch all pending follow-ups for tomorrow in one query — only for
+  // clinics whose plan includes whatsapp_reminders (see src/config/plans.js).
   const { rows: followUps } = await pool.query(
     `SELECT f.id, f.follow_up_date, f.notes,
             p.name AS patient_name, p.mobile
      FROM follow_ups f
      JOIN consultations c ON f.consultation_id = c.id
      JOIN patients p ON c.patient_id = p.id
+     JOIN clinics cl ON cl.id = p.clinic_id
      WHERE f.follow_up_date = $1
        AND f.is_completed = false
-       AND p.mobile IS NOT NULL`,
+       AND p.mobile IS NOT NULL
+       AND (cl.features->>'whatsapp_reminders')::boolean IS TRUE`,
     [tomorrowStr]
   );
 

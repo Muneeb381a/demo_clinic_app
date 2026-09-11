@@ -16,6 +16,21 @@ const BCRYPT_ROUNDS = 12;
 const asInet = (v) =>
   typeof v === "string" && /^[0-9a-fA-F:.]+$/.test(v) && v.length <= 45 ? v : null;
 
+// login/refresh/me all return "who is this session" — each joins clinics so
+// the frontend knows the clinic's plan/features without a separate request
+// (see src/config/plans.js). Pulled into one helper so the shape stays
+// identical across all three. `null` for a platform admin (no clinic_id).
+export const withClinicPlan = (row) => ({
+  id: row.id,
+  name: row.name,
+  email: row.email,
+  role: row.role,
+  clinic_id: row.clinic_id,
+  is_owner: row.is_owner,
+  ...(row.specialization !== undefined && { specialization: row.specialization }),
+  clinic: row.clinic_id ? { plan: row.clinic_plan, features: row.clinic_features } : null,
+});
+
 // Exported so inviteController.js (accept-invite also starts a session) can
 // reuse these instead of duplicating the refresh-cookie/JWT dance.
 export const clientMeta = (req) => ({
@@ -96,7 +111,11 @@ export const login = async (req, res) => {
     }
 
     const result = await pool.query(
-      "SELECT id, name, email, role, clinic_id, is_owner, password_hash FROM auth_users WHERE email = $1",
+      `SELECT u.id, u.name, u.email, u.role, u.clinic_id, u.is_owner, u.password_hash,
+              c.plan AS clinic_plan, c.features AS clinic_features
+         FROM auth_users u
+         LEFT JOIN clinics c ON c.id = u.clinic_id
+        WHERE u.email = $1`,
       [email.toLowerCase()]
     );
 
@@ -110,14 +129,7 @@ export const login = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
-    const publicUser = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      clinic_id: user.clinic_id,
-      is_owner: user.is_owner,
-    };
+    const publicUser = withClinicPlan(user);
     const accessToken = await startSession(req, res, publicUser);
     res.json({ success: true, accessToken, user: publicUser });
   } catch (error) {
@@ -136,7 +148,11 @@ export const refresh = async (req, res) => {
     const { userId, raw: nextRaw } = await rotateRefreshToken(raw, clientMeta(req));
 
     const { rows } = await pool.query(
-      "SELECT id, name, email, role, clinic_id, is_owner FROM auth_users WHERE id = $1",
+      `SELECT u.id, u.name, u.email, u.role, u.clinic_id, u.is_owner,
+              c.plan AS clinic_plan, c.features AS clinic_features
+         FROM auth_users u
+         LEFT JOIN clinics c ON c.id = u.clinic_id
+        WHERE u.id = $1`,
       [userId]
     );
     if (rows.length === 0) {
@@ -144,8 +160,9 @@ export const refresh = async (req, res) => {
       return res.status(401).json({ success: false, message: "Session invalid" });
     }
 
+    const user = withClinicPlan(rows[0]);
     res.cookie(REFRESH_COOKIE, nextRaw, refreshCookieOptions(req));
-    res.json({ success: true, accessToken: signAccessToken(rows[0]), user: rows[0] });
+    res.json({ success: true, accessToken: signAccessToken(user), user });
   } catch (err) {
     res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions(req), maxAge: undefined });
     const message = err.code === "reused"
@@ -176,13 +193,17 @@ export const logout = async (req, res) => {
 export const me = async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, name, email, role, clinic_id, is_owner, specialization FROM auth_users WHERE id = $1",
+      `SELECT u.id, u.name, u.email, u.role, u.clinic_id, u.is_owner, u.specialization,
+              c.plan AS clinic_plan, c.features AS clinic_features
+         FROM auth_users u
+         LEFT JOIN clinics c ON c.id = u.clinic_id
+        WHERE u.id = $1`,
       [req.user.id]
     );
     if (result.rowCount === 0) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
-    res.json({ success: true, user: result.rows[0] });
+    res.json({ success: true, user: withClinicPlan(result.rows[0]) });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to fetch user" });
   }
