@@ -49,6 +49,18 @@ export const requireRole = (...roles) => (req, res, next) => {
 };
 
 /**
+ * Restricts access to a clinic's owner (its first doctor, or anyone promoted
+ * to is_owner) — used for clinic-level staff management. Must be used after
+ * requireAuth. Platform admins are not clinic owners; they use requireRole.
+ */
+export const requireOwner = (req, res, next) => {
+  if (!req.user?.is_owner) {
+    return res.status(403).json({ success: false, message: "Clinic owner access required" });
+  }
+  next();
+};
+
+/**
  * Signs a JWT token for a user.
  * @param {object} payload - { id, email, role }
  * @param {string} expiresIn - e.g. '24h', '7d'

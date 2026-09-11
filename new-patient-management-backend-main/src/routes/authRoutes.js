@@ -1,6 +1,7 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
 import { register, login, refresh, logout, me } from "../controllers/authController.js";
+import { getInvite, acceptInvite } from "../controllers/inviteController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -23,5 +24,9 @@ router.post("/login",    loginLimiter, login);
 router.post("/refresh",  refresh);
 router.post("/logout",   logout);
 router.get("/me",        requireAuth, me);
+
+// Invite-acceptance flow — public, the token itself is the credential.
+router.get("/invite/:token", getInvite);
+router.post("/accept-invite", loginLimiter, acceptInvite);
 
 export default router;

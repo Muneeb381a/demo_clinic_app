@@ -16,13 +16,15 @@ const BCRYPT_ROUNDS = 12;
 const asInet = (v) =>
   typeof v === "string" && /^[0-9a-fA-F:.]+$/.test(v) && v.length <= 45 ? v : null;
 
-const clientMeta = (req) => ({
+// Exported so inviteController.js (accept-invite also starts a session) can
+// reuse these instead of duplicating the refresh-cookie/JWT dance.
+export const clientMeta = (req) => ({
   userAgent: req.headers["user-agent"],
   ip: asInet(req.ip),
 });
 
 // Sets the rotating refresh cookie and returns the short-lived access token.
-const startSession = async (req, res, user) => {
+export const startSession = async (req, res, user) => {
   const { raw } = await issueRefreshToken(user.id, clientMeta(req));
   res.cookie(REFRESH_COOKIE, raw, refreshCookieOptions(req));
   return signAccessToken(user);
