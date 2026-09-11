@@ -52,17 +52,30 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
     dispatch(fetchNeuroOptions());
   }, [dispatch]);
 
-  const isDashboard = location.pathname === "/dashboard";
+  const isDashboard = location.pathname === "/";
 
   return (
     <>
       {!isDashboard && (
-        <header className="sticky top-0 z-10">
+        <header className="sticky top-0 z-10 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800">
           <div className="max-w-8xl mx-auto px-4 py-2 flex justify-between items-center">
-            <div className="flex items-center gap-2">
-            </div>
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate("/")}
+              className="flex items-center gap-2 group shrink-0"
+              title="Dashboard"
+            >
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
+                C
+              </div>
+              <span className="font-semibold text-gray-800 dark:text-gray-100 hidden sm:inline">
+                Clinic
+              </span>
+            </button>
+            <div className="flex items-center gap-2 sm:gap-3">
               <TimeGreeting locale="en-PK" timeZone="Asia/Karachi" />
+              <NavLink to="/patients" currentPath={location.pathname}>
+                Patients
+              </NavLink>
               {getUser()?.is_owner && (
                 <NavLink to="/staff" currentPath={location.pathname}>
                   Staff
@@ -83,8 +96,9 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
       )}
 
       <Routes>
-        <Route path="/" element={<PatientSearch />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/dashboard" element={<Navigate to="/" replace />} />
+        <Route path="/patients" element={<PatientSearch />} />
         <Route path="/patients/:patientId" element={<PatientSearch />} />
         <Route path="/patients/new" element={<PatientSearch />} />
         <Route
@@ -108,7 +122,7 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
           path="/staff"
           element={<RequireRole allow={isOwner}><ClinicStaffPage /></RequireRole>}
         />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       <FloatingChatbot />
