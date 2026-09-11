@@ -191,9 +191,11 @@ import neuroOptionsRoutes from "./routes/neuroOptionsRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import suggestionRoutes from "./routes/suggestionRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
+import platformRoutes from "./routes/platformRoutes.js";
 import { followUpReminderHandler } from "./cron/followUpReminder.js";
 import { requireAuth } from "./middleware/auth.js";
 import { audit } from "./middleware/audit.js";
+import { requireActiveClinic } from "./middleware/clinicStatus.js";
 
 app.get("/ping", async (req, res) => {
   try {
@@ -235,10 +237,14 @@ app.use("/api/auth", authRoutes);
 // ── Protect everything below this line ─────────────────────────────────────
 app.use(requireAuth);
 
+// A suspended clinic's staff are cut off before touching any data.
+app.use(requireActiveClinic);
+
 // Append-only access/change trail for authenticated requests
 app.use(audit);
 
 // ── Protected routes ────────────────────────────────────────────────────────
+app.use("/api/platform", platformRoutes);
 app.use("/api/patients", patientRoutes);
 app.use("/api/consultations", consultationRoutes);
 app.use("/api/medicines", cacheHeaders(300), medicineRoutes);
