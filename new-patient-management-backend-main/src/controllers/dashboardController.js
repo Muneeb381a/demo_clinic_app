@@ -1,28 +1,29 @@
 import { pool } from "../models/db.js";
 import { cacheGet, cacheSet } from "../utils/cache.js";
-import { isAdmin } from "../middleware/scope.js";
+import { isPlatformAdmin } from "../middleware/scope.js";
 
 const DASHBOARD_TTL = 60; // 1 minute — stats should feel near-realtime
 
 // GET /api/dashboard/stats
-// Returns all dashboard data in a single DB round-trip, scoped to the caller's
-// own patients/consultations (admins see the whole clinic).
+// Returns all dashboard data in a single DB round-trip, scoped to the
+// caller's clinic (platform admins see everything).
 export const getDashboardStats = async (req, res) => {
   try {
-    const scoped = !isAdmin(req.user);
-    const params = scoped ? [req.user.id] : [];
-    const cacheKey = `dashboard:stats:${scoped ? `u${req.user.id}` : "admin"}`;
+    const scoped = !isPlatformAdmin(req.user);
+    const params = scoped ? [req.user.clinic_id] : [];
+    const cacheKey = `dashboard:stats:${scoped ? `c${req.user.clinic_id}` : "admin"}`;
     const cached = await cacheGet(cacheKey);
     if (cached) return res.json(cached);
 
-    // Per-doctor predicates ("" for admins). Patients are owned by doctor_id;
-    // consultations by created_by; follow-ups/prescriptions/symptoms through
-    // their consultation.
-    const wPat   = scoped ? "WHERE doctor_id = $1" : "";
-    const aPatWk = scoped ? "AND doctor_id = $1" : "";
-    const aCons  = scoped ? "AND created_by = $1" : "";
-    const aConsC = scoped ? "AND c.created_by = $1" : "";
-    const aPatP  = scoped ? "AND p.doctor_id = $1" : "";
+    // Clinic-wide predicates ("" for platform admins). Patients are owned by
+    // clinic_id directly; consultations only through their patient, so those
+    // predicates go through a subquery on patients.clinic_id.
+    const wPat    = scoped ? "WHERE clinic_id = $1" : "";
+    const aPatWk  = scoped ? "AND clinic_id = $1" : "";
+    const consSub = "patient_id IN (SELECT id FROM patients WHERE clinic_id = $1)";
+    const aCons   = scoped ? `AND ${consSub}` : "";
+    const aConsC  = scoped ? `AND c.${consSub}` : "";
+    const aPatP   = scoped ? "AND p.clinic_id = $1" : "";
 
     const result = await pool.query(`
       WITH
@@ -80,7 +81,7 @@ export const getDashboardStats = async (req, res) => {
         FROM prescriptions pr
         JOIN medicines m ON pr.medicine_id = m.id
         JOIN consultations c ON c.id = pr.consultation_id
-        ${scoped ? "WHERE c.created_by = $1" : ""}
+        ${scoped ? `WHERE c.${consSub}` : ""}
         GROUP BY m.brand_name
         ORDER BY count DESC
         LIMIT 10
@@ -91,7 +92,7 @@ export const getDashboardStats = async (req, res) => {
         FROM consultation_symptoms cs
         JOIN symptoms s ON cs.symptom_id = s.id
         JOIN consultations c ON c.id = cs.consultation_id
-        ${scoped ? "WHERE c.created_by = $1" : ""}
+        ${scoped ? `WHERE c.${consSub}` : ""}
         GROUP BY s.name
         ORDER BY count DESC
         LIMIT 10

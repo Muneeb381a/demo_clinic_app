@@ -7,7 +7,7 @@ const DB = process.env.INTEGRATION_DB_URL;
 const run = DB ? describe : describe.skip;
 
 run("audit log (integration)", () => {
-  let request, app, pool, signToken, doctorId, patientId;
+  let request, app, pool, signToken, clinic, doctorId, patientId;
 
   beforeAll(async () => {
     process.env.DATABASE_URL = DB;
@@ -19,15 +19,20 @@ run("audit log (integration)", () => {
     ({ signToken } = await import("./middleware/auth.js"));
     ({ default: app } = await import("./app.js"));
 
+    const c = await pool.query(
+      `INSERT INTO clinics (name, slug) VALUES ('Audit Test Clinic', 'audit-test-${Date.now()}') RETURNING id`
+    );
+    clinic = c.rows[0].id;
     const d = await pool.query(
-      `INSERT INTO auth_users (name,email,password_hash,salt,role)
-       VALUES ('Audit Doc','audit-${Date.now()}@t.pk','x','','doctor') RETURNING id`
+      `INSERT INTO auth_users (name,email,password_hash,salt,role,clinic_id,is_owner)
+       VALUES ('Audit Doc','audit-${Date.now()}@t.pk','x','','doctor',$1,true) RETURNING id`,
+      [clinic]
     );
     doctorId = d.rows[0].id;
     const p = await pool.query(
-      `INSERT INTO patients (mobile,mr_no,name,doctor_id)
-       VALUES ('03007778888','MR-AUD-${Date.now()}','Audit Patient',$1) RETURNING id`,
-      [doctorId]
+      `INSERT INTO patients (mobile,mr_no,name,doctor_id,clinic_id)
+       VALUES ('03007778888','MR-AUD-${Date.now()}','Audit Patient',$1,$2) RETURNING id`,
+      [doctorId, clinic]
     );
     patientId = p.rows[0].id;
   });
@@ -37,10 +42,11 @@ run("audit log (integration)", () => {
     await pool.query("DELETE FROM audit_log WHERE user_id = $1", [doctorId]);
     await pool.query("DELETE FROM patients WHERE doctor_id = $1", [doctorId]);
     await pool.query("DELETE FROM auth_users WHERE id = $1", [doctorId]);
+    await pool.query("DELETE FROM clinics WHERE id = $1", [clinic]);
     await pool.end();
   });
 
-  const token = () => signToken({ id: doctorId, email: "a@t.pk", role: "doctor" });
+  const token = () => signToken({ id: doctorId, email: "a@t.pk", role: "doctor", clinic_id: clinic, is_owner: true });
 
   // The audit write is fire-and-forget on `finish`; poll briefly for it.
   const waitForRow = async (sql, params) => {

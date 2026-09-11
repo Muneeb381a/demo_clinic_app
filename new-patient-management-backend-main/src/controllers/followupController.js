@@ -1,16 +1,16 @@
 import twilio from 'twilio';
 import { pool } from '../models/db.js';
-import { consultationOwned, isAdmin } from '../middleware/scope.js';
+import { consultationOwned, isPlatformAdmin } from '../middleware/scope.js';
 
 // follow_ups rows are owned through consultation -> patient.
 const followUpOwned = async (id, user) => {
-  const sql = isAdmin(user)
+  const sql = isPlatformAdmin(user)
     ? "SELECT 1 FROM follow_ups WHERE id = $1"
     : `SELECT 1 FROM follow_ups f
          JOIN consultations c ON c.id = f.consultation_id
          JOIN patients p ON p.id = c.patient_id
-        WHERE f.id = $1 AND p.doctor_id = $2`;
-  const { rowCount } = await pool.query(sql, isAdmin(user) ? [id] : [id, user.id]);
+        WHERE f.id = $1 AND p.clinic_id = $2`;
+  const { rowCount } = await pool.query(sql, isPlatformAdmin(user) ? [id] : [id, user.clinic_id]);
   return rowCount > 0;
 };
 

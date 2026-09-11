@@ -1,7 +1,7 @@
 import express from "express";
 import rateLimit from "express-rate-limit";
 import { register, login, refresh, logout, me } from "../controllers/authController.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -15,7 +15,10 @@ const loginLimiter = rateLimit({
     res.status(429).json({ success: false, message: "Too many attempts. Try again in 15 minutes." }),
 });
 
-router.post("/register", loginLimiter, register);
+// Platform-admin only — creates a staff account in an existing clinic. Normal
+// onboarding is POST /api/platform/clinics (new clinic + owner) or
+// POST /api/clinic/invites (existing clinic invites its own staff).
+router.post("/register", requireAuth, requireRole("platform_admin"), loginLimiter, register);
 router.post("/login",    loginLimiter, login);
 router.post("/refresh",  refresh);
 router.post("/logout",   logout);

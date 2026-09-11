@@ -1,11 +1,12 @@
 import { pool } from "../models/db.js";
 import { cacheGet, cacheSet, cacheGetSWR, cacheDel, cacheDelPattern } from "../utils/cache.js";
 import { v4 as uuidv4 } from "uuid";
-import { isAdmin } from "../middleware/scope.js";
+import { isPlatformAdmin } from "../middleware/scope.js";
 
-// Cache keys are namespaced by the caller so one doctor's cached list/search
-// is never served to another. Admins share a single "admin" namespace.
-const ns = (user) => (isAdmin(user) ? "admin" : `u${user.id}`);
+// Cache keys are namespaced by clinic so one clinic's cached list/search is
+// never served to another — but IS shared across that clinic's own staff
+// (doctors + receptionists), since patients are a clinic-wide pool.
+const ns = (user) => (isPlatformAdmin(user) ? "admin" : `c${user.clinic_id}`);
 
 // TTL constants
 const PATIENT_LIST_HARD_TTL = 3600;  // keep stale data up to 1 hour
@@ -22,9 +23,9 @@ export const createPatient = async (req, res) => {
     const mr_no = `MR-${uuidv4()}`;
 
     const result = await pool.query(
-      `INSERT INTO patients (mobile, mr_no, name, age, gender, weight, height, doctor_id, checkup_date)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_DATE) RETURNING *`,
-      [mobile, mr_no, name, age, gender, weight, height, req.user.id]
+      `INSERT INTO patients (mobile, mr_no, name, age, gender, weight, height, doctor_id, clinic_id, checkup_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_DATE) RETURNING *`,
+      [mobile, mr_no, name, age, gender, weight, height, req.user.id, req.user.clinic_id]
     );
 
     await Promise.all([
@@ -49,7 +50,7 @@ export const getPatients = async (req, res) => {
     const limit  = Math.min(Math.max(parseInt(req.query.limit || "100", 10) || 100, 1), 1000);
     const offset = Math.max(parseInt(req.query.offset || "0", 10) || 0, 0);
     const cacheKey = `patients:list:${ns(req.user)}:${limit}:${offset}`;
-    const scoped = !isAdmin(req.user);
+    const scoped = !isPlatformAdmin(req.user);
 
     const data = await cacheGetSWR(
       cacheKey,
@@ -58,10 +59,10 @@ export const getPatients = async (req, res) => {
           `SELECT id, name, age, gender, mobile, weight, height, mr_no,
                   TO_CHAR(checkup_date, 'DD-Mon-YYYY') AS checkup_date
            FROM patients
-           ${scoped ? "WHERE doctor_id = $3" : ""}
+           ${scoped ? "WHERE clinic_id = $3" : ""}
            ORDER BY id DESC
            LIMIT $1 OFFSET $2`,
-          scoped ? [limit, offset, req.user.id] : [limit, offset]
+          scoped ? [limit, offset, req.user.clinic_id] : [limit, offset]
         );
         return result.rows;
       },
@@ -86,9 +87,9 @@ export const getPatient = async (req, res) => {
     const cached = await cacheGet(cacheKey);
     if (cached) return res.json(cached);
 
-    const result = isAdmin(req.user)
+    const result = isPlatformAdmin(req.user)
       ? await pool.query("SELECT * FROM patients WHERE id = $1", [id])
-      : await pool.query("SELECT * FROM patients WHERE id = $1 AND doctor_id = $2", [id, req.user.id]);
+      : await pool.query("SELECT * FROM patients WHERE id = $1 AND clinic_id = $2", [id, req.user.clinic_id]);
     if (!result.rows.length) {
       return res.status(404).json({ error: "Patient not found" });
     }
@@ -107,7 +108,7 @@ export const updatePatient = async (req, res) => {
   try {
     const { id } = req.params;
     const { mobile, name, age, gender, weight, height } = req.body;
-    const result = isAdmin(req.user)
+    const result = isPlatformAdmin(req.user)
       ? await pool.query(
           `UPDATE patients SET
            mobile = $1, name = $2, age = $3, gender = $4, weight = $5, height = $6
@@ -117,8 +118,8 @@ export const updatePatient = async (req, res) => {
       : await pool.query(
           `UPDATE patients SET
            mobile = $1, name = $2, age = $3, gender = $4, weight = $5, height = $6
-           WHERE id = $7 AND doctor_id = $8 RETURNING *`,
-          [mobile, name, age, gender, weight, height, id, req.user.id]
+           WHERE id = $7 AND clinic_id = $8 RETURNING *`,
+          [mobile, name, age, gender, weight, height, id, req.user.clinic_id]
         );
     if (!result.rows.length) {
       return res.status(404).json({ error: "Patient not found" });
@@ -141,9 +142,9 @@ export const updatePatient = async (req, res) => {
 export const deletePatient = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = isAdmin(req.user)
+    const result = isPlatformAdmin(req.user)
       ? await pool.query("DELETE FROM patients WHERE id = $1 RETURNING id", [id])
-      : await pool.query("DELETE FROM patients WHERE id = $1 AND doctor_id = $2 RETURNING id", [id, req.user.id]);
+      : await pool.query("DELETE FROM patients WHERE id = $1 AND clinic_id = $2 RETURNING id", [id, req.user.clinic_id]);
     if (!result.rowCount) {
       return res.status(404).json({ error: "Patient not found" });
     }
@@ -205,10 +206,10 @@ export const searchPatient = async (req, res) => {
       orderBy = `similarity(name, $${params.length}) DESC, name ASC`;
     }
 
-    // Per-doctor isolation
-    if (!isAdmin(req.user)) {
-      params.push(req.user.id);
-      conditions.push(`doctor_id = $${params.length}`);
+    // Clinic-wide isolation
+    if (!isPlatformAdmin(req.user)) {
+      params.push(req.user.clinic_id);
+      conditions.push(`clinic_id = $${params.length}`);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -262,7 +263,7 @@ export const suggestPatient = async (req, res) => {
     const cached = await cacheGet(cacheKey);
     if (cached) return res.json(cached);
 
-    const result = isAdmin(req.user)
+    const result = isPlatformAdmin(req.user)
       ? await pool.query(
           `SELECT id, name, mobile, age, gender FROM patients
            WHERE name ILIKE $1 ORDER BY name ASC LIMIT 5`,
@@ -270,8 +271,8 @@ export const suggestPatient = async (req, res) => {
         )
       : await pool.query(
           `SELECT id, name, mobile, age, gender FROM patients
-           WHERE name ILIKE $1 AND doctor_id = $2 ORDER BY name ASC LIMIT 5`,
-          [`${name}%`, req.user.id]
+           WHERE name ILIKE $1 AND clinic_id = $2 ORDER BY name ASC LIMIT 5`,
+          [`${name}%`, req.user.clinic_id]
         );
 
     const suggestions = result.rows.map((row) => ({
@@ -297,10 +298,10 @@ export const getPatientHistory = async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (!isAdmin(req.user)) {
+    if (!isPlatformAdmin(req.user)) {
       const own = await pool.query(
-        "SELECT 1 FROM patients WHERE id = $1 AND doctor_id = $2",
-        [id, req.user.id]
+        "SELECT 1 FROM patients WHERE id = $1 AND clinic_id = $2",
+        [id, req.user.clinic_id]
       );
       if (!own.rowCount) return res.status(404).json({ error: "No consultations found" });
     }

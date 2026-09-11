@@ -60,4 +60,14 @@ export const signToken = (payload, expiresIn = "24h") =>
 // token (httpOnly cookie) via POST /api/auth/refresh.
 export const ACCESS_TTL = "15m";
 export const signAccessToken = (user) =>
-  jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: ACCESS_TTL });
+  jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      clinic_id: user.clinic_id ?? null,
+      is_owner: Boolean(user.is_owner),
+    },
+    JWT_SECRET,
+    { expiresIn: ACCESS_TTL }
+  );

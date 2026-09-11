@@ -1,5 +1,5 @@
 import { pool } from "../models/db.js";
-import { isAdmin, patientOwned, consultationOwned } from "../middleware/scope.js";
+import { isPlatformAdmin, patientOwned, consultationOwned } from "../middleware/scope.js";
 
 // export const createConsultation = async (req, res) => {
 //   try {
@@ -81,12 +81,12 @@ export const createConsultation = async (req, res) => {
 };
 export const getAllConsultations = async (req, res) => {
   try {
-    const scoped = !isAdmin(req.user);
+    const scoped = !isPlatformAdmin(req.user);
     const limit = Math.min(Math.max(parseInt(req.query.limit || "50", 10) || 50, 1), 200);
     const offset = Math.max(parseInt(req.query.offset || "0", 10) || 0, 0);
 
-    const params = scoped ? [req.user.id, limit, offset] : [limit, offset];
-    const where = scoped ? "WHERE p.doctor_id = $1" : "";
+    const params = scoped ? [req.user.clinic_id, limit, offset] : [limit, offset];
+    const where = scoped ? "WHERE p.clinic_id = $1" : "";
     const lim = scoped ? "$2" : "$1";
     const off = scoped ? "$3" : "$2";
 
