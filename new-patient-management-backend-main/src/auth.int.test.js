@@ -86,6 +86,38 @@ run("auth: rotating refresh tokens (integration)", () => {
     expect(after.status).toBe(401);
   });
 
+  it("the refresh cookie's Secure flag follows the request, not NODE_ENV", async () => {
+    // Regression test: the cookie used to key Secure off process.env.NODE_ENV.
+    // A misconfigured NODE_ENV=production in local dev (a real incident — see
+    // the fix commit) made every login's Set-Cookie carry Secure, which a
+    // browser silently drops over plain http://localhost — the refresh cookie
+    // never persisted and every reload bounced back to the login screen.
+    const prevEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const plain = await request(app).post("/api/auth/login").send({ email, password });
+      const plainCookie = (plain.headers["set-cookie"] || []).find((c) => c.startsWith("rt="));
+      expect(plainCookie).toBeTruthy();
+      expect(plainCookie).not.toMatch(/;\s*Secure/i);
+
+      // ... and the cookie that was actually set still works for refresh.
+      const refreshed = await request(app)
+        .post("/api/auth/refresh")
+        .set("Cookie", plainCookie.split(";")[0]);
+      expect(refreshed.status).toBe(200);
+
+      // Behind Vercel's proxy (X-Forwarded-Proto: https), it must be Secure.
+      const viaProxy = await request(app)
+        .post("/api/auth/login")
+        .set("X-Forwarded-Proto", "https")
+        .send({ email, password });
+      const proxyCookie = (viaProxy.headers["set-cookie"] || []).find((c) => c.startsWith("rt="));
+      expect(proxyCookie).toMatch(/;\s*Secure/i);
+    } finally {
+      process.env.NODE_ENV = prevEnv;
+    }
+  });
+
   it("login is rate-limited after repeated failures", async () => {
     const bad = { email, password: "wrong" };
     let sawLimit = false;

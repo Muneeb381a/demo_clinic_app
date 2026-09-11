@@ -24,7 +24,7 @@ const clientMeta = (req) => ({
 // Sets the rotating refresh cookie and returns the short-lived access token.
 const startSession = async (req, res, user) => {
   const { raw } = await issueRefreshToken(user.id, clientMeta(req));
-  res.cookie(REFRESH_COOKIE, raw, refreshCookieOptions());
+  res.cookie(REFRESH_COOKIE, raw, refreshCookieOptions(req));
   return signAccessToken(user);
 };
 
@@ -116,14 +116,14 @@ export const refresh = async (req, res) => {
       [userId]
     );
     if (rows.length === 0) {
-      res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions(), maxAge: undefined });
+      res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions(req), maxAge: undefined });
       return res.status(401).json({ success: false, message: "Session invalid" });
     }
 
-    res.cookie(REFRESH_COOKIE, nextRaw, refreshCookieOptions());
+    res.cookie(REFRESH_COOKIE, nextRaw, refreshCookieOptions(req));
     res.json({ success: true, accessToken: signAccessToken(rows[0]), user: rows[0] });
   } catch (err) {
-    res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions(), maxAge: undefined });
+    res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions(req), maxAge: undefined });
     const message = err.code === "reused"
       ? "Session revoked — please sign in again"
       : "Session expired";
@@ -141,7 +141,7 @@ export const logout = async (req, res) => {
   } catch {
     // best-effort
   }
-  res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions(), maxAge: undefined });
+  res.clearCookie(REFRESH_COOKIE, { ...refreshCookieOptions(req), maxAge: undefined });
   res.json({ success: true });
 };
 
