@@ -569,7 +569,15 @@ header, which is what Vercel Cron actually sends.
 | Method | Endpoint | Schedule | Description |
 |--------|----------|----------|-------------|
 | `GET` | `/api/cron/follow-up-reminders` | Daily, 4:00 UTC (9 AM PKT) | Send WhatsApp reminders for upcoming follow-ups |
-| `GET` | `/api/cron/db-keepalive` | Every 5 min, 4–16 UTC (9 AM–9 PM PKT) | Ping the DB during clinic hours only |
+| `GET` | `/api/cron/db-keepalive` | Not scheduled — see below | Ping the DB (callable manually; not in `vercel.json`'s `crons`) |
+
+**Vercel's Hobby plan only allows a cron to run once per day** — any
+more-frequent schedule (including the old `db-keepalive` one) makes every
+deployment fail outright with "Hobby accounts are limited to daily cron
+jobs." `db-keepalive`'s route still exists (harmless to call by hand before
+a demo) but isn't scheduled, since a once-a-day keepalive can't meaningfully
+prevent intraday cold starts anyway — see "Keep-alive cron for NeonDB" below
+for the actual trade-off and how to get it back on Vercel Pro.
 
 ---
 
@@ -829,13 +837,22 @@ Pinging it 24/7 to prevent that (as an early version of this project did)
 burns compute hours around the clock for no benefit outside opening hours,
 and can exhaust a free-tier's monthly allowance in days.
 
-`vercel.json`'s `db-keepalive` cron is scoped to clinic hours only
-(`*/5 4-16 * * *` — every 5 min, 4:00–16:59 UTC = 9 AM–9 PM PKT). Outside that
-window the database is allowed to suspend normally; the first request after a
-suspend pays a ~1–3s cold-start, which is an acceptable trade for not running
-compute all night. Adjust the hour range in `vercel.json` if your clinic's
-timing differs, and don't also point an external pinger (cron-job.org etc.)
-at this endpoint — that just doubles the cost for the same effect.
+An intraday keepalive (e.g. every 5 min during clinic hours) is what you'd
+want next — but **Vercel's Hobby plan only permits a cron to run once per
+day**; anything more frequent fails every single deployment with "Hobby
+accounts are limited to daily cron jobs" (this is what silently broke
+deploys on this project for a long stretch — check `vercel.json`'s `crons`
+first if deploys start failing again). A once-a-day cron can't meaningfully
+prevent intraday cold starts, so `db-keepalive` is left out of `crons`
+entirely for now; the database is allowed to suspend normally, and the first
+request after a suspend pays a ~1–3s cold start.
+
+To get an intraday keepalive back: upgrade to Vercel Pro, then add back a
+cron entry scoped to clinic hours, e.g.
+`{ "path": "/api/cron/db-keepalive", "schedule": "*/5 4-16 * * *" }` (every 5
+min, 4:00–16:59 UTC = 9 AM–9 PM PKT — adjust the hour range to your clinic's
+timing). Don't also point an external pinger (cron-job.org etc.) at this
+endpoint even then — that just doubles the cost for the same effect.
 
 ---
 
