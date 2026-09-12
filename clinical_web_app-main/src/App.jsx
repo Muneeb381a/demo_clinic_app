@@ -59,7 +59,7 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
     <>
       {!isDashboard && (
         <header className="sticky top-0 z-10 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800">
-          <div className="max-w-8xl mx-auto px-4 py-2 flex justify-between items-center">
+          <div className="max-w-7xl mx-auto px-4 py-2.5 flex justify-between items-center">
             <button
               onClick={() => navigate("/")}
               className="flex items-center gap-2 group shrink-0"
@@ -74,6 +74,7 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
             </button>
             <div className="flex items-center gap-2 sm:gap-3">
               <TimeGreeting locale="en-PK" timeZone="Asia/Karachi" />
+              <div className="hidden md:block w-px h-5 bg-gray-200 dark:bg-gray-700" />
               <NavLink to="/patients" currentPath={location.pathname}>
                 Patients
               </NavLink>
@@ -84,7 +85,7 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
               )}
               <button
                 onClick={onLogout}
-                className="flex items-center gap-1.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 border border-gray-200 dark:border-gray-600 hover:border-red-300 dark:hover:border-red-500 px-3 py-1.5 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg transition-colors"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
