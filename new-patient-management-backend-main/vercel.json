@@ -14,10 +14,6 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/db-keepalive",
-      "schedule": "*/5 4-16 * * *"
-    },
-    {
       "path": "/api/cron/follow-up-reminders",
       "schedule": "0 4 * * *"
     },
