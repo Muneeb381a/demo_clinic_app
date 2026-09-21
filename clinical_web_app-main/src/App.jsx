@@ -21,6 +21,8 @@ import ClinicStaffPage from "./pages/ClinicStaffPage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import BillingPage from "./pages/BillingPage";
 import FeeSettingsPage from "./pages/FeeSettingsPage";
+import IpdPage from "./pages/IpdPage";
+import WardSetupPage from "./pages/WardSetupPage";
 import RequireRole, { isDoctor, isOwner } from "./components/RequireRole";
 import { hasFeature } from "./utils/features";
 import { bootstrapSession, getUser, logout as logoutSession } from "./utils/auth";
@@ -28,6 +30,9 @@ import FullPageLoader from "./pages/FullPageLoader";
 
 const canBill = (user) => hasFeature(user, "billing");
 const canManageFees = (user) => hasFeature(user, "billing") && Boolean(user?.is_owner);
+
+const canIpd = (user) => hasFeature(user, "ipd");
+const canManageWards = (user) => hasFeature(user, "ipd") && Boolean(user?.is_owner);
 
 const NavLink = ({ to, children, currentPath }) => {
   const navigate = useNavigate();
@@ -88,6 +93,16 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
                   Billing
                 </NavLink>
               )}
+              {canIpd(getUser()) && (
+                <NavLink to="/ipd" currentPath={location.pathname}>
+                  Beds
+                </NavLink>
+              )}
+              {canManageWards(getUser()) && (
+                <NavLink to="/ipd/wards" currentPath={location.pathname}>
+                  Wards
+                </NavLink>
+              )}
               {canManageFees(getUser()) && (
                 <NavLink to="/billing/fees" currentPath={location.pathname}>
                   Fees
@@ -141,6 +156,8 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
         />
         <Route path="/billing" element={<RequireRole allow={canBill}><BillingPage /></RequireRole>} />
         <Route path="/billing/fees" element={<RequireRole allow={canManageFees}><FeeSettingsPage /></RequireRole>} />
+        <Route path="/ipd" element={<RequireRole allow={canIpd}><IpdPage /></RequireRole>} />
+        <Route path="/ipd/wards" element={<RequireRole allow={canManageWards}><WardSetupPage /></RequireRole>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

@@ -59,7 +59,7 @@ run("clinic plans (integration)", () => {
     expect(res.body.clinic.plan).toBe("clinic");
     expect(res.body.clinic.max_doctors).toBe(1);
     expect(res.body.clinic.max_receptionists).toBe(1);
-    expect(res.body.clinic.features).toEqual({ ai_suggestions: false, chatbot: true, whatsapp_reminders: false, billing: false });
+    expect(res.body.clinic.features).toEqual({ ai_suggestions: false, chatbot: true, whatsapp_reminders: false, billing: false, ipd: false });
   });
 
   it("applies the 'hospital' preset when plan is given", async () => {
@@ -71,7 +71,7 @@ run("clinic plans (integration)", () => {
     expect(res.body.clinic.plan).toBe("hospital");
     expect(res.body.clinic.max_doctors).toBe(10);
     expect(res.body.clinic.max_receptionists).toBe(5);
-    expect(res.body.clinic.features).toEqual({ ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true });
+    expect(res.body.clinic.features).toEqual({ ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true });
   });
 
   it("an explicit max_doctors/features overrides the plan's preset", async () => {
@@ -103,7 +103,7 @@ run("clinic plans (integration)", () => {
 
     expect(patched.status).toBe(200);
     expect(patched.body.clinic.plan).toBe("hospital");
-    expect(patched.body.clinic.features).toEqual({ ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true });
+    expect(patched.body.clinic.features).toEqual({ ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true });
     expect(patched.body.clinic.max_doctors).toBe(1); // untouched by the plan switch
   });
 
@@ -119,7 +119,7 @@ run("clinic plans (integration)", () => {
       .send({ features: { ai_suggestions: true } });
 
     expect(patched.status).toBe(200);
-    expect(patched.body.clinic.features).toEqual({ ai_suggestions: true, chatbot: true, whatsapp_reminders: false, billing: false });
+    expect(patched.body.clinic.features).toEqual({ ai_suggestions: true, chatbot: true, whatsapp_reminders: false, billing: false, ipd: false });
   });
 
   it("requireFeature blocks a clinic-plan doctor from the AI suggestion routes", async () => {
@@ -165,14 +165,14 @@ run("clinic plans (integration)", () => {
     createdUserIds.push(created.body.owner.id);
 
     const login = await request(app).post("/api/auth/login").send({ email: created.body.owner.email, password: "password1" });
-    expect(login.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true } });
+    expect(login.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true } });
 
     const cookie = login.headers["set-cookie"];
     const refreshed = await request(app).post("/api/auth/refresh").set("Cookie", cookie);
-    expect(refreshed.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true } });
+    expect(refreshed.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true } });
 
     const me = await request(app).get("/api/auth/me").set("Authorization", `Bearer ${login.body.accessToken}`);
-    expect(me.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true } });
+    expect(me.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true } });
   });
 
   it("a platform admin's session has clinic: null", async () => {
