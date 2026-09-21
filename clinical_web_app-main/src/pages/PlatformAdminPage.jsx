@@ -17,6 +17,7 @@ const FEATURES = [
   { key: "chatbot", label: "Medical chatbot" },
   { key: "whatsapp_reminders", label: "WhatsApp follow-up reminders" },
   { key: "billing", label: "Fees, billing & receipts" },
+  { key: "ipd", label: "Wards, beds & admissions" },
 ];
 
 const emptyForm = {
