@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { fetchDashboardStats, selectDashboard } from "../store/slices/dashboardSlice";
-import { logout as logoutSession } from "../utils/auth";
+import { logout as logoutSession, getUser } from "../utils/auth";
+import { hasFeature } from "../utils/features";
 
 // ── Horizontal bar chart for analytics ────────────────────────────────────────
 const HBarChart = ({ data, color }) => {

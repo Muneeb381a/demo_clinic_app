@@ -18,6 +18,7 @@ export const PLAN_PRESETS = {
       ai_suggestions: false,
       chatbot: true,
       whatsapp_reminders: false,
+      billing: false,
     },
   },
   hospital: {
@@ -27,6 +28,7 @@ export const PLAN_PRESETS = {
       ai_suggestions: true,
       chatbot: true,
       whatsapp_reminders: true,
+      billing: true,
     },
   },
 };
