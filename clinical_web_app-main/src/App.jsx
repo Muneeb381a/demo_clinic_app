@@ -19,10 +19,15 @@ import LoginPage from "./pages/LoginPage";
 import PlatformAdminPage from "./pages/PlatformAdminPage";
 import ClinicStaffPage from "./pages/ClinicStaffPage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
+import BillingPage from "./pages/BillingPage";
+import FeeSettingsPage from "./pages/FeeSettingsPage";
 import RequireRole, { isDoctor, isOwner } from "./components/RequireRole";
 import { hasFeature } from "./utils/features";
 import { bootstrapSession, getUser, logout as logoutSession } from "./utils/auth";
 import FullPageLoader from "./pages/FullPageLoader";
+
+const canBill = (user) => hasFeature(user, "billing");
+const canManageFees = (user) => hasFeature(user, "billing") && Boolean(user?.is_owner);
 
 const NavLink = ({ to, children, currentPath }) => {
   const navigate = useNavigate();
@@ -78,6 +83,16 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
               <NavLink to="/patients" currentPath={location.pathname}>
                 Patients
               </NavLink>
+              {canBill(getUser()) && (
+                <NavLink to="/billing" currentPath={location.pathname}>
+                  Billing
+                </NavLink>
+              )}
+              {canManageFees(getUser()) && (
+                <NavLink to="/billing/fees" currentPath={location.pathname}>
+                  Fees
+                </NavLink>
+              )}
               {getUser()?.is_owner && (
                 <NavLink to="/staff" currentPath={location.pathname}>
                   Staff
@@ -124,6 +139,8 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
           path="/staff"
           element={<RequireRole allow={isOwner}><ClinicStaffPage /></RequireRole>}
         />
+        <Route path="/billing" element={<RequireRole allow={canBill}><BillingPage /></RequireRole>} />
+        <Route path="/billing/fees" element={<RequireRole allow={canManageFees}><FeeSettingsPage /></RequireRole>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 

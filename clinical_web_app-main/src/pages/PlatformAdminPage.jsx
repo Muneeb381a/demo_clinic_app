@@ -16,6 +16,7 @@ const FEATURES = [
   { key: "ai_suggestions", label: "AI diagnosis suggestions" },
   { key: "chatbot", label: "Medical chatbot" },
   { key: "whatsapp_reminders", label: "WhatsApp follow-up reminders" },
+  { key: "billing", label: "Fees, billing & receipts" },
 ];
 
 const emptyForm = {
