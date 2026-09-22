@@ -199,7 +199,7 @@ import ipdRoutes from "./routes/ipdRoutes.js";
 import { followUpReminderHandler } from "./cron/followUpReminder.js";
 import { requireAuth } from "./middleware/auth.js";
 import { audit } from "./middleware/audit.js";
-import { requireActiveClinic } from "./middleware/clinicStatus.js";
+import { requireActiveClinic, requireTrialActive } from "./middleware/clinicStatus.js";
 
 app.get("/ping", async (req, res) => {
   try {
@@ -244,6 +244,10 @@ app.use(requireAuth);
 
 // A suspended clinic's staff are cut off before touching any data.
 app.use(requireActiveClinic);
+
+// Likewise for a trial clinic whose time is up — enforced against
+// Postgres's own clock, not anything the client sends (see clinicStatus.js).
+app.use(requireTrialActive);
 
 // Append-only access/change trail for authenticated requests
 app.use(audit);

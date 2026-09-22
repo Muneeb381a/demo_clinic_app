@@ -5,7 +5,7 @@
 import { pool } from "../models/db.js";
 import bcrypt from "bcryptjs";
 import { findPendingInvite, markInviteAccepted } from "../services/invites.js";
-import { startSession, withClinicPlan } from "./authController.js";
+import { startSession, withClinicPlan, startTrialIfNeeded } from "./authController.js";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -69,10 +69,15 @@ export const acceptInvite = async (req, res) => {
 
     await client.query("COMMIT");
 
+    // A staff member accepting an invite is also a "first login" for trial
+    // purposes if nobody (e.g. the owner) has logged in yet.
+    const trial = await startTrialIfNeeded(invite.clinic_id);
     const user = withClinicPlan({
       ...result.rows[0],
       clinic_plan: invite.clinic_plan,
       clinic_features: invite.clinic_features,
+      clinic_is_trial: trial.clinic_is_trial ?? invite.clinic_is_trial,
+      clinic_trial_ends_at: trial.clinic_trial_ends_at ?? invite.clinic_trial_ends_at,
     });
     const accessToken = await startSession(req, res, user);
     res.status(201).json({ success: true, accessToken, user });
