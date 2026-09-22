@@ -20,6 +20,12 @@ const asInet = (v) =>
 // the frontend knows the clinic's plan/features without a separate request
 // (see src/config/plans.js). Pulled into one helper so the shape stays
 // identical across all three. `null` for a platform admin (no clinic_id).
+//
+// `trial_expired` is computed here, server-side, from the DB's own
+// trial_ends_at — the frontend only ever displays this flag, it never
+// computes expiry itself. See requireTrialActive (middleware/clinicStatus.js)
+// for the actual enforcement, which re-checks Postgres's NOW() on every
+// request regardless of what this snapshot says.
 export const withClinicPlan = (row) => ({
   id: row.id,
   name: row.name,
@@ -28,7 +34,15 @@ export const withClinicPlan = (row) => ({
   clinic_id: row.clinic_id,
   is_owner: row.is_owner,
   ...(row.specialization !== undefined && { specialization: row.specialization }),
-  clinic: row.clinic_id ? { plan: row.clinic_plan, features: row.clinic_features } : null,
+  clinic: row.clinic_id
+    ? {
+        plan: row.clinic_plan,
+        features: row.clinic_features,
+        is_trial: Boolean(row.clinic_is_trial),
+        trial_ends_at: row.clinic_trial_ends_at,
+        trial_expired: Boolean(row.clinic_is_trial) && row.clinic_trial_ends_at != null && new Date(row.clinic_trial_ends_at) < new Date(),
+      }
+    : null,
 });
 
 // Exported so inviteController.js (accept-invite also starts a session) can
@@ -37,6 +51,32 @@ export const clientMeta = (req) => ({
   userAgent: req.headers["user-agent"],
   ip: asInet(req.ip),
 });
+
+/**
+ * The trial clock starts on the clinic's first successful login/accept-
+ * invite, not at clinic creation — call this (and merge the columns it
+ * returns into the row you're about to pass to withClinicPlan) right before
+ * building the session response, so even the very first login's own
+ * response reflects the just-started trial_ends_at.
+ *
+ * Idempotent: only clinics with is_trial=true and trial_started_at still
+ * NULL are touched; every later login is a no-op SELECT. trial_ends_at is
+ * computed by Postgres itself (NOW() + trial_days), never by this Node
+ * process's clock — see requireTrialActive for why that matters.
+ */
+export const startTrialIfNeeded = async (clinicId) => {
+  if (!clinicId) return {};
+  const { rows } = await pool.query(
+    `UPDATE clinics
+        SET trial_started_at = NOW(), trial_ends_at = NOW() + (trial_days || ' days')::interval
+      WHERE id = $1 AND is_trial = true AND trial_started_at IS NULL
+      RETURNING is_trial, trial_ends_at`,
+    [clinicId]
+  );
+  if (rows.length) return { clinic_is_trial: rows[0].is_trial, clinic_trial_ends_at: rows[0].trial_ends_at };
+  const cur = await pool.query("SELECT is_trial, trial_ends_at FROM clinics WHERE id = $1", [clinicId]);
+  return cur.rowCount ? { clinic_is_trial: cur.rows[0].is_trial, clinic_trial_ends_at: cur.rows[0].trial_ends_at } : {};
+};
 
 // Sets the rotating refresh cookie and returns the short-lived access token.
 export const startSession = async (req, res, user) => {
@@ -112,7 +152,8 @@ export const login = async (req, res) => {
 
     const result = await pool.query(
       `SELECT u.id, u.name, u.email, u.role, u.clinic_id, u.is_owner, u.password_hash,
-              c.plan AS clinic_plan, c.features AS clinic_features
+              c.plan AS clinic_plan, c.features AS clinic_features,
+              c.is_trial AS clinic_is_trial, c.trial_ends_at AS clinic_trial_ends_at
          FROM auth_users u
          LEFT JOIN clinics c ON c.id = u.clinic_id
         WHERE u.email = $1`,
@@ -128,6 +169,9 @@ export const login = async (req, res) => {
     if (!valid) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
+
+    // First login for a trial clinic starts its clock — see startTrialIfNeeded.
+    Object.assign(user, await startTrialIfNeeded(user.clinic_id));
 
     const publicUser = withClinicPlan(user);
     const accessToken = await startSession(req, res, publicUser);
@@ -149,7 +193,8 @@ export const refresh = async (req, res) => {
 
     const { rows } = await pool.query(
       `SELECT u.id, u.name, u.email, u.role, u.clinic_id, u.is_owner,
-              c.plan AS clinic_plan, c.features AS clinic_features
+              c.plan AS clinic_plan, c.features AS clinic_features,
+              c.is_trial AS clinic_is_trial, c.trial_ends_at AS clinic_trial_ends_at
          FROM auth_users u
          LEFT JOIN clinics c ON c.id = u.clinic_id
         WHERE u.id = $1`,
@@ -194,7 +239,8 @@ export const me = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.name, u.email, u.role, u.clinic_id, u.is_owner, u.specialization,
-              c.plan AS clinic_plan, c.features AS clinic_features
+              c.plan AS clinic_plan, c.features AS clinic_features,
+              c.is_trial AS clinic_is_trial, c.trial_ends_at AS clinic_trial_ends_at
          FROM auth_users u
          LEFT JOIN clinics c ON c.id = u.clinic_id
         WHERE u.id = $1`,

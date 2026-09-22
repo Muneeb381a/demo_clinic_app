@@ -24,7 +24,8 @@ import FeeSettingsPage from "./pages/FeeSettingsPage";
 import IpdPage from "./pages/IpdPage";
 import WardSetupPage from "./pages/WardSetupPage";
 import RequireRole, { isDoctor, isOwner } from "./components/RequireRole";
-import { hasFeature } from "./utils/features";
+import TrialExpiredPage from "./pages/TrialExpiredPage";
+import { hasFeature, isTrialExpired, trialDaysLeft } from "./utils/features";
 import { bootstrapSession, getUser, logout as logoutSession } from "./utils/auth";
 import FullPageLoader from "./pages/FullPageLoader";
 
@@ -64,9 +65,16 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
   }, [dispatch]);
 
   const isDashboard = location.pathname === "/";
+  const daysLeft = trialDaysLeft(getUser());
 
   return (
     <>
+      {daysLeft != null && (
+        <div className="bg-amber-500 text-white text-xs sm:text-sm text-center py-1.5 px-4">
+          Trial account — {daysLeft} day{daysLeft === 1 ? "" : "s"} left. Contact us to continue after that.
+        </div>
+      )}
+
       {!isDashboard && (
         <header className="sticky top-0 z-10 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800">
           <div className="max-w-7xl mx-auto px-4 py-2.5 flex justify-between items-center">
@@ -238,6 +246,14 @@ const App = () => {
   // Platform admins provision clinics — they don't use the clinical app.
   if (role === "platform_admin") {
     return <PlatformAdminPage onLogout={handleLogout} />;
+  }
+
+  // Credentials are still valid — only the clinic's trial window is up.
+  // Computed server-side (see utils/features.js); nothing client-side can
+  // forge past this, since every real endpoint is independently blocked by
+  // the backend's requireTrialActive regardless of what this page shows.
+  if (isTrialExpired(getUser())) {
+    return <TrialExpiredPage user={getUser()} onLogout={handleLogout} />;
   }
 
   return (

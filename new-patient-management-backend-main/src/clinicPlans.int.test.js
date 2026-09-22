@@ -165,14 +165,14 @@ run("clinic plans (integration)", () => {
     createdUserIds.push(created.body.owner.id);
 
     const login = await request(app).post("/api/auth/login").send({ email: created.body.owner.email, password: "password1" });
-    expect(login.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true } });
+    expect(login.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true }, is_trial: false, trial_ends_at: null, trial_expired: false });
 
     const cookie = login.headers["set-cookie"];
     const refreshed = await request(app).post("/api/auth/refresh").set("Cookie", cookie);
-    expect(refreshed.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true } });
+    expect(refreshed.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true }, is_trial: false, trial_ends_at: null, trial_expired: false });
 
     const me = await request(app).get("/api/auth/me").set("Authorization", `Bearer ${login.body.accessToken}`);
-    expect(me.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true } });
+    expect(me.body.user.clinic).toEqual({ plan: "hospital", features: { ai_suggestions: true, chatbot: true, whatsapp_reminders: true, billing: true, ipd: true }, is_trial: false, trial_ends_at: null, trial_expired: false });
   });
 
   it("a platform admin's session has clinic: null", async () => {

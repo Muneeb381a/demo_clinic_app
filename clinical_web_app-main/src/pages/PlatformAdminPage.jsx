@@ -26,6 +26,8 @@ const emptyForm = {
   plan: "clinic",
   max_doctors: PLAN_PRESETS.clinic.max_doctors,
   max_receptionists: PLAN_PRESETS.clinic.max_receptionists,
+  isTrial: false,
+  trialDays: 7,
   ownerName: "",
   ownerEmail: "",
   ownerPassword: "",
@@ -46,6 +48,25 @@ const PlanBadge = ({ plan }) => (
   </span>
 );
 
+// Purely cosmetic for the operator's own view — the customer's actual access
+// is gated server-side against Postgres's own clock (requireTrialActive),
+// never by this component's Date.now().
+const TrialBadge = ({ clinic }) => {
+  if (!clinic.is_trial) return <span className="text-xs text-gray-400">—</span>;
+  if (!clinic.trial_started_at) {
+    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">Not started</span>;
+  }
+  const daysLeft = Math.ceil((new Date(clinic.trial_ends_at) - new Date()) / 86400000);
+  if (daysLeft <= 0) {
+    return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">Expired</span>;
+  }
+  return (
+    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+      {daysLeft} day{daysLeft === 1 ? "" : "s"} left
+    </span>
+  );
+};
+
 const PlatformAdminPage = ({ onLogout }) => {
   const [clinics, setClinics] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +81,7 @@ const PlatformAdminPage = ({ onLogout }) => {
   const [editForm, setEditForm] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState("");
+  const [extendDays, setExtendDays] = useState(7);
 
   const loadClinics = useCallback(async () => {
     setLoading(true);
@@ -106,6 +128,8 @@ const PlatformAdminPage = ({ onLogout }) => {
         plan: form.plan,
         max_doctors: Number(form.max_doctors) || 1,
         max_receptionists: Number(form.max_receptionists) || 0,
+        is_trial: form.isTrial,
+        ...(form.isTrial && { trial_days: Number(form.trialDays) || 7 }),
         owner: {
           name: form.ownerName,
           email: form.ownerEmail,
@@ -165,6 +189,27 @@ const PlatformAdminPage = ({ onLogout }) => {
       setEditError(err.response?.data?.message || "Failed to update clinic");
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  const extendTrial = async (clinicId) => {
+    setEditError("");
+    try {
+      await apiClient.patch(`/api/platform/clinics/${clinicId}`, { extend_trial_days: Number(extendDays) || 7 });
+      await loadClinics();
+    } catch (err) {
+      setEditError(err.response?.data?.message || "Failed to extend trial");
+    }
+  };
+
+  const convertToPaid = async (clinicId) => {
+    if (!window.confirm("Convert this trial to a regular paid clinic? Access won't expire anymore.")) return;
+    setEditError("");
+    try {
+      await apiClient.patch(`/api/platform/clinics/${clinicId}`, { is_trial: false });
+      await loadClinics();
+    } catch (err) {
+      setEditError(err.response?.data?.message || "Failed to convert clinic");
     }
   };
 
@@ -233,6 +278,32 @@ const PlatformAdminPage = ({ onLogout }) => {
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                 Sets starting seats + features below — both stay editable per clinic afterward (see the "Edit" action in the list).
               </p>
+            </div>
+            <div className="sm:col-span-2 flex items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-lg px-3 py-2.5">
+              <input
+                id="clinic-trial"
+                type="checkbox"
+                checked={form.isTrial}
+                onChange={(e) => setForm((f) => ({ ...f, isTrial: e.target.checked }))}
+                className="rounded border-gray-300"
+              />
+              <label htmlFor="clinic-trial" className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                Demo / trial account
+              </label>
+              {form.isTrial && (
+                <span className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+                  — expires
+                  <input
+                    id="trial-days"
+                    type="number"
+                    min={1}
+                    value={form.trialDays}
+                    onChange={handleFormChange("trialDays")}
+                    className="w-16 px-2 py-1 border border-amber-200 dark:border-amber-700 rounded-lg bg-white dark:bg-gray-800 text-sm"
+                  />
+                  days after the owner's first login — regardless of what device/date they use.
+                </span>
+              )}
             </div>
             <div>
               <label htmlFor="max-doctors" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max doctors</label>
@@ -336,6 +407,7 @@ const PlatformAdminPage = ({ onLogout }) => {
                     <th className="py-2 pr-4">Clinic</th>
                     <th className="py-2 pr-4">Slug</th>
                     <th className="py-2 pr-4">Plan</th>
+                    <th className="py-2 pr-4">Trial</th>
                     <th className="py-2 pr-4">Doctors</th>
                     <th className="py-2 pr-4">Receptionists</th>
                     <th className="py-2 pr-4">Status</th>
@@ -349,6 +421,7 @@ const PlatformAdminPage = ({ onLogout }) => {
                         <td className="py-2 pr-4 font-medium text-gray-800 dark:text-gray-100">{c.name}</td>
                         <td className="py-2 pr-4 text-gray-500">{c.slug}</td>
                         <td className="py-2 pr-4"><PlanBadge plan={c.plan} /></td>
+                        <td className="py-2 pr-4"><TrialBadge clinic={c} /></td>
                         <td className="py-2 pr-4">{c.doctor_count} / {c.max_doctors}</td>
                         <td className="py-2 pr-4">{c.receptionist_count} / {c.max_receptionists}</td>
                         <td className="py-2 pr-4">
@@ -379,7 +452,7 @@ const PlatformAdminPage = ({ onLogout }) => {
                       </tr>
                       {editingId === c.id && editForm && (
                         <tr className="border-b border-gray-50 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-700/30">
-                          <td colSpan={7} className="py-4 px-4">
+                          <td colSpan={8} className="py-4 px-4">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                               <div>
                                 <label htmlFor={`edit-plan-${c.id}`} className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Plan</label>
@@ -439,6 +512,36 @@ const PlatformAdminPage = ({ onLogout }) => {
                                 ))}
                               </div>
                             </div>
+
+                            {c.is_trial && (
+                              <div className="mt-4 flex flex-wrap items-center gap-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-lg px-3 py-2.5">
+                                <TrialBadge clinic={c} />
+                                <span className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+                                  Extend by
+                                  <input
+                                    aria-label={`Extend trial days for ${c.name}`}
+                                    type="number"
+                                    min={1}
+                                    value={extendDays}
+                                    onChange={(e) => setExtendDays(e.target.value)}
+                                    className="w-16 px-2 py-1 border border-amber-200 dark:border-amber-700 rounded-lg bg-white dark:bg-gray-800 text-sm"
+                                  />
+                                  days
+                                </span>
+                                <button
+                                  onClick={() => extendTrial(c.id)}
+                                  className="text-xs font-medium bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg"
+                                >
+                                  Extend
+                                </button>
+                                <button
+                                  onClick={() => convertToPaid(c.id)}
+                                  className="text-xs font-medium border border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 px-3 py-1.5 rounded-lg"
+                                >
+                                  Convert to paid
+                                </button>
+                              </div>
+                            )}
 
                             {editError && <p className="text-sm text-red-600 mt-3">{editError}</p>}
 

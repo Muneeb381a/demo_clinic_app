@@ -27,13 +27,15 @@ const sanitizeFeatures = (features) => {
  * POST /api/platform/clinics
  * Creates a clinic and its first user (the owner) in one transaction.
  * Body: { name, slug, plan?, max_doctors?, max_receptionists?, features?,
- *         owner: { name, email, password, specialization? } }
+ *         is_trial?, trial_days?, owner: { name, email, password, specialization? } }
  * `plan` ('clinic' | 'hospital', default 'clinic') fills max_doctors/
  * max_receptionists/features with its preset wherever the caller didn't
- * explicitly pass one — see src/config/plans.js.
+ * explicitly pass one — see src/config/plans.js. `is_trial` (default false)
+ * marks this a demo account; its clock only starts on the owner's first
+ * login (src/controllers/authController.js's startTrialIfNeeded), not now.
  */
 export const createClinic = async (req, res) => {
-  const { name, slug, plan = "clinic", max_doctors, max_receptionists, features, owner } = req.body;
+  const { name, slug, plan = "clinic", max_doctors, max_receptionists, features, is_trial = false, trial_days, owner } = req.body;
 
   if (!name || !slug) {
     return res.status(400).json({ success: false, message: "name and slug are required" });
@@ -53,6 +55,10 @@ export const createClinic = async (req, res) => {
   if (owner.password.length < 8) {
     return res.status(400).json({ success: false, message: "owner.password must be at least 8 characters" });
   }
+  const trialDays = trial_days !== undefined ? Number(trial_days) : 7;
+  if (is_trial && (!Number.isInteger(trialDays) || trialDays < 1)) {
+    return res.status(400).json({ success: false, message: "trial_days must be a positive integer" });
+  }
 
   const preset = PLAN_PRESETS[plan];
   const maxDoctors = Number.isInteger(max_doctors) && max_doctors > 0 ? max_doctors : preset.max_doctors;
@@ -70,9 +76,9 @@ export const createClinic = async (req, res) => {
     }
 
     const clinicRes = await client.query(
-      `INSERT INTO clinics (name, slug, max_doctors, max_receptionists, plan, features)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [name, slug, maxDoctors, maxReceptionists, plan, JSON.stringify(clinicFeatures)]
+      `INSERT INTO clinics (name, slug, max_doctors, max_receptionists, plan, features, is_trial, trial_days)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [name, slug, maxDoctors, maxReceptionists, plan, JSON.stringify(clinicFeatures), Boolean(is_trial), trialDays]
     );
     const clinic = clinicRes.rows[0];
 
@@ -123,7 +129,8 @@ export const listClinics = async (req, res) => {
 
 /**
  * PATCH /api/platform/clinics/:id
- * Body: any of { name, max_doctors, max_receptionists, status, plan, features }
+ * Body: any of { name, max_doctors, max_receptionists, status, plan, features,
+ *                is_trial, trial_days, extend_trial_days }
  * status must be 'active' or 'suspended'; plan must be a known preset name.
  *
  * `plan` re-applies that plan's *feature* defaults only (seat limits are
@@ -131,16 +138,29 @@ export const listClinics = async (req, res) => {
  * negotiated a custom max_doctors keeps it). Pass `features` in the same
  * request to override individual flags on top of the plan's defaults, or
  * pass `features` alone (no `plan`) to toggle flags without changing plan.
+ *
+ * `is_trial: false` is "convert to paid" — clears the trial clock entirely.
+ * `is_trial: true` (re-)arms a trial and resets its clock to unstarted, so
+ * it begins fresh on the next login. `trial_days` alone just changes the
+ * length for whenever the clock does start. `extend_trial_days` adds N days
+ * — to `trial_ends_at` if the trial already started, otherwise to
+ * `trial_days` (so a trial that hasn't begun yet gets a longer run once it does).
  */
 export const updateClinic = async (req, res) => {
   const { id } = req.params;
-  const { name, max_doctors, max_receptionists, status, plan, features } = req.body;
+  const { name, max_doctors, max_receptionists, status, plan, features, is_trial, trial_days, extend_trial_days } = req.body;
 
   if (status !== undefined && !["active", "suspended"].includes(status)) {
     return res.status(400).json({ success: false, message: "status must be 'active' or 'suspended'" });
   }
   if (plan !== undefined && !isValidPlan(plan)) {
     return res.status(400).json({ success: false, message: `plan must be one of: ${Object.keys(PLAN_PRESETS).join(", ")}` });
+  }
+  if (trial_days !== undefined && (!Number.isInteger(Number(trial_days)) || Number(trial_days) < 1)) {
+    return res.status(400).json({ success: false, message: "trial_days must be a positive integer" });
+  }
+  if (extend_trial_days !== undefined && (!Number.isInteger(Number(extend_trial_days)) || Number(extend_trial_days) < 1)) {
+    return res.status(400).json({ success: false, message: "extend_trial_days must be a positive integer" });
   }
 
   const fields = [];
@@ -154,6 +174,30 @@ export const updateClinic = async (req, res) => {
   if (max_receptionists !== undefined) set("max_receptionists", max_receptionists);
   if (status !== undefined) set("status", status);
   if (plan !== undefined) set("plan", plan);
+
+  if (is_trial === false) {
+    set("is_trial", false);
+    set("trial_started_at", null);
+    set("trial_ends_at", null);
+  } else if (is_trial === true) {
+    set("is_trial", true);
+    set("trial_started_at", null);
+    set("trial_ends_at", null);
+    if (trial_days !== undefined) set("trial_days", Number(trial_days));
+  } else if (trial_days !== undefined) {
+    set("trial_days", Number(trial_days));
+  }
+  if (extend_trial_days !== undefined && is_trial === undefined) {
+    // Two separate placeholders for the same value — reusing one `$n` in both
+    // an interval concat (text) and an integer add makes Postgres unable to
+    // infer a single consistent type for it.
+    values.push(Number(extend_trial_days));
+    const daysForInterval = values.length;
+    values.push(Number(extend_trial_days));
+    const daysForCount = values.length;
+    fields.push(`trial_ends_at = CASE WHEN trial_ends_at IS NOT NULL THEN trial_ends_at + ($${daysForInterval}::text || ' days')::interval ELSE trial_ends_at END`);
+    fields.push(`trial_days = CASE WHEN trial_ends_at IS NULL THEN trial_days + $${daysForCount}::integer ELSE trial_days END`);
+  }
 
   // features: plan's preset first, then an explicit `features` body merges
   // on top of it (or of the clinic's current features, if `plan` wasn't
