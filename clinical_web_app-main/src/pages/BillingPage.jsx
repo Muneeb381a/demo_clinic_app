@@ -8,8 +8,8 @@ const input =
 const card = "bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6";
 const btn = "text-sm font-medium bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-lg transition-colors";
 
-// ── Receipt (also the print layout) ──────────────────────────────────────────
-const Receipt = ({ data, onClose, onPay }) => {
+// ── Receipt (also the print layout) — exported for IpdPage's final IPD bill ─
+export const Receipt = ({ data, onClose, onPay }) => {
   const { bill, items, payments } = data;
   const balance = Number(bill.total) - Number(bill.paid);
   const [amount, setAmount] = useState("");

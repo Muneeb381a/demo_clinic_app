@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import apiClient from "../utils/axiosClient";
 import { formatMoney } from "../utils/billing";
+import { Receipt } from "./BillingPage";
 
 const input =
   "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm";
 const card = "bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6";
 const btn = "text-sm font-medium bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-4 py-2 rounded-lg transition-colors";
+const smallBtn = "text-xs font-medium bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-3 py-1.5 rounded-lg";
 
 const bedStyle = {
   available: "border-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-700",
@@ -21,11 +23,178 @@ const Stat = ({ label, value, tone }) => (
   </div>
 );
 
+// ── Live running bill: room rent + charges so far, deposits, balance ────────
+const RunningBill = ({ admissionId, doctors, services, refreshKey, onChanged, openReceipt }) => {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  const [depAmount, setDepAmount] = useState("");
+  const [depMethod, setDepMethod] = useState("cash");
+  const [chargeType, setChargeType] = useState("visit");
+  const [chargeDoctor, setChargeDoctor] = useState("");
+  const [chargeService, setChargeService] = useState("");
+  const [chargeQty, setChargeQty] = useState(1);
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await apiClient.get(`/api/ipd/admissions/${admissionId}/running-bill`);
+      setData(data);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to load running bill");
+    }
+  }, [admissionId]);
+
+  useEffect(() => { load(); }, [load, refreshKey]);
+
+  const addDeposit = async () => {
+    setError("");
+    try {
+      await apiClient.post(`/api/ipd/admissions/${admissionId}/deposits`, { amount: Number(depAmount), method: depMethod });
+      setDepAmount("");
+      await load();
+      onChanged?.();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to record deposit");
+    }
+  };
+
+  const addCharge = async () => {
+    setError("");
+    try {
+      await apiClient.post(`/api/ipd/admissions/${admissionId}/charges`,
+        chargeType === "visit" ? { type: "visit", doctor_id: Number(chargeDoctor) } : { type: "service", service_id: Number(chargeService), qty: Number(chargeQty) || 1 });
+      setChargeDoctor(""); setChargeService(""); setChargeQty(1);
+      await load();
+      onChanged?.();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to add charge");
+    }
+  };
+
+  if (!data) return <p className="text-sm text-gray-500">Loading…</p>;
+  const admitted = data.admission.status === "admitted";
+
+  return (
+    <div className="mt-3 space-y-4 border-t border-gray-100 dark:border-gray-700 pt-4">
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div>
+        <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Charges so far</p>
+        {data.items.length === 0 ? <p className="text-xs text-gray-400">Room rent will appear here once the stay has begun.</p> : (
+          <ul className="text-sm space-y-1">
+            {data.items.map((i, idx) => (
+              <li key={idx} className="flex justify-between text-gray-700 dark:text-gray-200">
+                <span>{i.description}</span><span>{formatMoney(i.amount)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex justify-between text-sm font-semibold mt-2 pt-2 border-t border-dashed border-gray-200 dark:border-gray-700">
+          <span>Subtotal</span><span>{formatMoney(data.subtotal)}</span>
+        </div>
+        <div className="flex justify-between text-sm text-gray-500"><span>Deposits</span><span>{formatMoney(data.deposit_total)}</span></div>
+        <div className="flex justify-between text-sm font-semibold text-teal-700 dark:text-teal-400"><span>Balance so far</span><span>{formatMoney(data.balance_so_far)}</span></div>
+      </div>
+
+      {data.finalized_bill_id ? (
+        <button onClick={() => openReceipt(data.finalized_bill_id)} className={smallBtn}>View receipt</button>
+      ) : admitted ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Record an advance deposit</p>
+            <div className="flex gap-2">
+              <input aria-label="Deposit amount" type="number" min={0} className={input} value={depAmount} onChange={(e) => setDepAmount(e.target.value)} />
+              <select aria-label="Deposit method" className={`${input} w-24`} value={depMethod} onChange={(e) => setDepMethod(e.target.value)}>
+                <option value="cash">Cash</option><option value="card">Card</option><option value="online">Online</option>
+              </select>
+              <button className={smallBtn} onClick={addDeposit} disabled={!Number(depAmount)}>Add</button>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Log a charge</p>
+            <div className="flex gap-2 mb-2">
+              <select aria-label="Charge type" className={input} value={chargeType} onChange={(e) => setChargeType(e.target.value)}>
+                <option value="visit">Doctor visit</option><option value="service">Service</option>
+              </select>
+              {chargeType === "visit" ? (
+                <select aria-label="Visiting doctor" className={input} value={chargeDoctor} onChange={(e) => setChargeDoctor(e.target.value)}>
+                  <option value="">Select doctor</option>
+                  {doctors.filter((d) => d.configured).map((d) => <option key={d.doctor_id} value={d.doctor_id}>Dr. {d.name} ({formatMoney(d.consultation_fee)})</option>)}
+                </select>
+              ) : (
+                <>
+                  <select aria-label="Service" className={input} value={chargeService} onChange={(e) => setChargeService(e.target.value)}>
+                    <option value="">Select service</option>
+                    {services.filter((s) => s.active).map((s) => <option key={s.id} value={s.id}>{s.name} ({formatMoney(s.price)})</option>)}
+                  </select>
+                  <input aria-label="Charge quantity" type="number" min={1} className={`${input} w-16`} value={chargeQty} onChange={(e) => setChargeQty(e.target.value)} />
+                </>
+              )}
+            </div>
+            <button className={smallBtn} onClick={addCharge} disabled={chargeType === "visit" ? !chargeDoctor : !chargeService}>Add charge</button>
+          </div>
+        </div>
+      ) : (
+        <FinalizeBillForm admissionId={admissionId} onDone={(billId) => { onChanged?.(); openReceipt(billId); }} />
+      )}
+    </div>
+  );
+};
+
+const FinalizeBillForm = ({ admissionId, onDone }) => {
+  const [discount, setDiscount] = useState("");
+  const [payment, setPayment] = useState("");
+  const [method, setMethod] = useState("cash");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const finalize = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const { data } = await apiClient.post(`/api/ipd/admissions/${admissionId}/bill`, {
+        discount: Number(discount) || 0,
+        payment: Number(payment) > 0 ? { amount: Number(payment), method } : undefined,
+      });
+      onDone(data.bill.id);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to finalize bill");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-teal-50 dark:bg-teal-900/20 rounded-xl p-4">
+      <p className="text-xs font-medium text-teal-800 dark:text-teal-300 mb-2">Patient is discharged — finalize the bill</p>
+      <div className="flex flex-wrap gap-2 items-end">
+        <div>
+          <label htmlFor={`fin-disc-${admissionId}`} className="block text-xs text-gray-500 mb-1">Discount (Rs)</label>
+          <input id={`fin-disc-${admissionId}`} type="number" min={0} className={`${input} w-28`} value={discount} onChange={(e) => setDiscount(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor={`fin-pay-${admissionId}`} className="block text-xs text-gray-500 mb-1">Additional payment now (Rs)</label>
+          <input id={`fin-pay-${admissionId}`} type="number" min={0} className={`${input} w-28`} value={payment} onChange={(e) => setPayment(e.target.value)} />
+        </div>
+        <select aria-label="Payment method" className={`${input} w-24`} value={method} onChange={(e) => setMethod(e.target.value)}>
+          <option value="cash">Cash</option><option value="card">Card</option><option value="online">Online</option>
+        </select>
+        <button className={btn} onClick={finalize} disabled={saving}>{saving ? "Finalizing…" : "Finalize bill"}</button>
+      </div>
+      {error && <p className="text-sm text-red-600 mt-2">{error}</p>}
+    </div>
+  );
+};
+
 const IpdPage = () => {
   const [board, setBoard] = useState({ beds: [], counts: {} });
   const [admissions, setAdmissions] = useState([]);
+  const [pendingBilling, setPendingBilling] = useState([]);
   const [doctors, setDoctors] = useState([]);
+  const [feeDoctors, setFeeDoctors] = useState([]);
+  const [services, setServices] = useState([]);
   const [error, setError] = useState("");
+  const [expanded, setExpanded] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [receipt, setReceipt] = useState(null);
 
   // admit form
   const [query, setQuery] = useState("");
@@ -39,10 +208,17 @@ const IpdPage = () => {
 
   const load = useCallback(async () => {
     try {
-      const [b, a] = await Promise.all([apiClient.get("/api/ipd/beds"), apiClient.get("/api/ipd/admissions?status=admitted")]);
+      const [b, a, d] = await Promise.all([
+        apiClient.get("/api/ipd/beds"),
+        apiClient.get("/api/ipd/admissions?status=admitted"),
+        apiClient.get("/api/ipd/admissions?status=discharged"),
+      ]);
       setBoard(b.data);
       setAdmissions(a.data.admissions || []);
-      apiClient.get("/api/ipd/doctors").then((d) => setDoctors(d.data.doctors || [])).catch(() => {});
+      setPendingBilling(d.data.admissions || []);
+      apiClient.get("/api/ipd/doctors").then((r) => setDoctors(r.data.doctors || [])).catch(() => {});
+      apiClient.get("/api/billing/doctors").then((r) => setFeeDoctors(r.data.doctors || [])).catch(() => {});
+      apiClient.get("/api/billing/services").then((r) => setServices(r.data.services || [])).catch(() => {});
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load beds");
     }
@@ -102,6 +278,17 @@ const IpdPage = () => {
     act(() => apiClient.post(`/api/ipd/admissions/${adm.id}/discharge`, { discharge_summary: summary }));
   };
 
+  const openReceipt = async (billId) => {
+    const { data } = await apiClient.get(`/api/billing/bills/${billId}`);
+    setReceipt(data);
+  };
+  const collect = async (id, payload) => {
+    await apiClient.post(`/api/billing/bills/${id}/payments`, payload);
+    await openReceipt(id);
+  };
+
+  const toggleExpand = (id) => setExpanded((cur) => (cur === id ? null : id));
+
   const wards = [...new Set(board.beds.map((b) => b.ward_name))];
   const free = board.beds.filter((b) => b.status === "available");
   const c = board.counts;
@@ -111,7 +298,7 @@ const IpdPage = () => {
       <div className="max-w-6xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Beds & Admissions</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Live bed board, admit, transfer and discharge patients.</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Live bed board, admit, transfer, discharge and bill patients.</p>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -210,34 +397,62 @@ const IpdPage = () => {
           {admissions.length === 0 ? (
             <p className="text-sm text-gray-500">No inpatients right now.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                    <th className="py-2 pr-3">No</th><th className="pr-3">Patient</th><th className="pr-3">Bed</th>
-                    <th className="pr-3">Doctor</th><th className="pr-3">Since</th><th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {admissions.map((a) => (
-                    <tr key={a.id} className="border-b border-gray-50 dark:border-gray-700/50">
-                      <td className="py-2 pr-3 font-medium text-gray-800 dark:text-gray-100">{a.admission_no}</td>
-                      <td className="pr-3">{a.patient_name}</td>
-                      <td className="pr-3">{a.ward_name} · {a.bed_no}</td>
-                      <td className="pr-3">{a.doctor_name ? `Dr. ${a.doctor_name}` : "—"}</td>
-                      <td className="pr-3">{new Date(a.admitted_at).toLocaleDateString("en-PK")}</td>
-                      <td className="whitespace-nowrap">
-                        <button onClick={() => transfer(a)} className="text-xs text-teal-700 hover:underline mr-3">Transfer</button>
-                        <button onClick={() => discharge(a)} className="text-xs text-rose-600 hover:underline">Discharge</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+              {admissions.map((a) => (
+                <li key={a.id} className="py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-800 dark:text-gray-100">{a.admission_no}</span>
+                      <span className="text-gray-500 dark:text-gray-400"> · {a.patient_name} · {a.ward_name} {a.bed_no}</span>
+                      <span className="text-gray-400"> · {a.doctor_name ? `Dr. ${a.doctor_name}` : "—"} · since {new Date(a.admitted_at).toLocaleDateString("en-PK")}</span>
+                    </div>
+                    <div className="whitespace-nowrap">
+                      <button onClick={() => toggleExpand(a.id)} className="text-xs text-teal-700 hover:underline mr-3">
+                        {expanded === a.id ? "Hide billing" : "Billing"}
+                      </button>
+                      <button onClick={() => transfer(a)} className="text-xs text-teal-700 hover:underline mr-3">Transfer</button>
+                      <button onClick={() => discharge(a)} className="text-xs text-rose-600 hover:underline">Discharge</button>
+                    </div>
+                  </div>
+                  {expanded === a.id && (
+                    <RunningBill admissionId={a.id} doctors={feeDoctors} services={services}
+                      refreshKey={refreshKey} onChanged={() => setRefreshKey((k) => k + 1)} openReceipt={openReceipt} />
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className={card}>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Discharged — awaiting bill</h2>
+          {pendingBilling.length === 0 ? (
+            <p className="text-sm text-gray-500">Nothing pending.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+              {pendingBilling.map((a) => (
+                <li key={a.id} className="py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-800 dark:text-gray-100">{a.admission_no}</span>
+                      <span className="text-gray-500 dark:text-gray-400"> · {a.patient_name}</span>
+                      <span className="text-gray-400"> · discharged {new Date(a.discharged_at).toLocaleDateString("en-PK")}</span>
+                    </div>
+                    <button onClick={() => toggleExpand(a.id)} className="text-xs text-teal-700 hover:underline">
+                      {expanded === a.id ? "Hide billing" : "Billing"}
+                    </button>
+                  </div>
+                  {expanded === a.id && (
+                    <RunningBill admissionId={a.id} doctors={feeDoctors} services={services}
+                      refreshKey={refreshKey} onChanged={() => { setRefreshKey((k) => k + 1); load(); }} openReceipt={openReceipt} />
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       </div>
+      {receipt && <Receipt data={receipt} onClose={() => setReceipt(null)} onPay={collect} />}
     </div>
   );
 };

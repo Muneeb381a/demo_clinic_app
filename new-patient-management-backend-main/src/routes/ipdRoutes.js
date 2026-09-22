@@ -3,6 +3,9 @@ import {
   requireClinicUser, listDoctors, listWards, createWard, updateWard, addBeds, updateBed, setBedStatus, bedBoard,
   admitPatient, transferPatient, dischargePatient, listAdmissions, getAdmission,
 } from "../controllers/ipdController.js";
+import {
+  addDeposit, listDeposits, addCharge, listCharges, deleteCharge, runningBill, finalizeBill,
+} from "../controllers/ipdBillingController.js";
 import { requireOwner } from "../middleware/auth.js";
 import { requireFeature } from "../middleware/clinicStatus.js";
 
@@ -26,5 +29,13 @@ router.post("/admissions", admitPatient);
 router.get("/admissions/:id", getAdmission);
 router.post("/admissions/:id/transfer", transferPatient);
 router.post("/admissions/:id/discharge", dischargePatient);
+
+router.get("/admissions/:id/deposits", listDeposits);
+router.post("/admissions/:id/deposits", addDeposit);
+router.get("/admissions/:id/charges", listCharges);
+router.post("/admissions/:id/charges", addCharge);
+router.delete("/admissions/:id/charges/:chargeId", requireOwner, deleteCharge);
+router.get("/admissions/:id/running-bill", runningBill);
+router.post("/admissions/:id/bill", finalizeBill);
 
 export default router;
