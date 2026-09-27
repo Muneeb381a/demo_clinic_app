@@ -27,12 +27,17 @@ const sanitizeFeatures = (features) => {
  * POST /api/platform/clinics
  * Creates a clinic and its first user (the owner) in one transaction.
  * Body: { name, slug, plan?, max_doctors?, max_receptionists?, features?,
- *         is_trial?, trial_days?, owner: { name, email, password, specialization? } }
+ *         is_trial?, trial_days?,
+ *         owner: { name, email, password, specialization?, consultation_fee?, followup_fee? } }
  * `plan` ('clinic' | 'hospital', default 'clinic') fills max_doctors/
  * max_receptionists/features with its preset wherever the caller didn't
  * explicitly pass one — see src/config/plans.js. `is_trial` (default false)
  * marks this a demo account; its clock only starts on the owner's first
  * login (src/controllers/authController.js's startTrialIfNeeded), not now.
+ * When the resulting clinic has the `billing` feature on and
+ * `owner.consultation_fee` is given, a `doctor_fees` row is seeded for the
+ * owner (staff type, 100% doctor share) so billing works immediately
+ * instead of requiring a separate trip to the Fees page first.
  */
 export const createClinic = async (req, res) => {
   const { name, slug, plan = "clinic", max_doctors, max_receptionists, features, is_trial = false, trial_days, owner } = req.body;
@@ -58,6 +63,14 @@ export const createClinic = async (req, res) => {
   const trialDays = trial_days !== undefined ? Number(trial_days) : 7;
   if (is_trial && (!Number.isInteger(trialDays) || trialDays < 1)) {
     return res.status(400).json({ success: false, message: "trial_days must be a positive integer" });
+  }
+  const consultationFee = owner?.consultation_fee !== undefined ? Number(owner.consultation_fee) : undefined;
+  if (consultationFee !== undefined && (!Number.isFinite(consultationFee) || consultationFee < 0)) {
+    return res.status(400).json({ success: false, message: "owner.consultation_fee must be a non-negative number" });
+  }
+  const followupFee = owner?.followup_fee !== undefined ? Number(owner.followup_fee) : 0;
+  if (!Number.isFinite(followupFee) || followupFee < 0) {
+    return res.status(400).json({ success: false, message: "owner.followup_fee must be a non-negative number" });
   }
 
   const preset = PLAN_PRESETS[plan];
@@ -89,6 +102,14 @@ export const createClinic = async (req, res) => {
        RETURNING id, name, email, role, clinic_id, is_owner`,
       [owner.name, owner.email.toLowerCase(), passwordHash, owner.specialization || null, clinic.id]
     );
+
+    if (clinicFeatures.billing && consultationFee !== undefined) {
+      await client.query(
+        `INSERT INTO doctor_fees (clinic_id, doctor_id, doctor_type, consultation_fee, followup_fee, hospital_share_pct, doctor_share_pct)
+         VALUES ($1, $2, 'staff', $3, $4, 0, 100)`,
+        [clinic.id, ownerRes.rows[0].id, consultationFee, followupFee]
+      );
+    }
 
     await client.query("COMMIT");
     res.status(201).json({ success: true, clinic, owner: ownerRes.rows[0] });
