@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FaBuilding, FaHospital, FaUserDoctor, FaUsers, FaClock, FaEnvelope, FaKey,
   FaUser, FaPenToSquare, FaBan, FaCircleCheck, FaCopy, FaPlus, FaShieldHalved,
-  FaHourglassHalf, FaXmark,
+  FaHourglassHalf, FaXmark, FaSackDollar,
 } from "react-icons/fa6";
 import apiClient from "../utils/axiosClient";
 import { getUser, logout } from "../utils/auth";
@@ -49,6 +49,8 @@ const emptyForm = {
   ownerName: "",
   ownerEmail: "",
   ownerPassword: "",
+  ownerConsultationFee: "",
+  ownerFollowupFee: "",
 };
 
 const slugify = (s) =>
@@ -210,6 +212,10 @@ const PlatformAdminPage = ({ onLogout }) => {
           name: form.ownerName,
           email: form.ownerEmail,
           password: form.ownerPassword,
+          ...(form.plan === "hospital" && form.ownerConsultationFee !== "" && {
+            consultation_fee: Number(form.ownerConsultationFee) || 0,
+            followup_fee: Number(form.ownerFollowupFee) || 0,
+          }),
         },
       });
       setCreatedCreds({ email: data.owner.email, password: form.ownerPassword, clinic: data.clinic.name });
@@ -534,6 +540,50 @@ const PlatformAdminPage = ({ onLogout }) => {
                   </div>
                 </div>
               </div>
+
+              {form.plan === "hospital" && (
+                <div className="mt-4 bg-teal-50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800/60 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FaSackDollar className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                    <p className="text-sm font-semibold text-teal-900 dark:text-teal-300">Owner consultation fee</p>
+                  </div>
+                  <p className="text-xs text-teal-700/80 dark:text-teal-400/80 mb-3">
+                    Billing is on for a hospital plan — set the owner's fee now so the receptionist can start collecting it from day one. Leave blank to set it later under Fees.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="owner-consultation-fee" className={label}>Consultation fee (Rs)</label>
+                      <div className="relative">
+                        <FieldIcon icon={FaSackDollar} />
+                        <input
+                          id="owner-consultation-fee"
+                          type="number"
+                          min={0}
+                          value={form.ownerConsultationFee}
+                          onChange={handleFormChange("ownerConsultationFee")}
+                          className={input}
+                          placeholder="e.g. 1500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="owner-followup-fee" className={label}>Follow-up fee (Rs)</label>
+                      <div className="relative">
+                        <FieldIcon icon={FaSackDollar} />
+                        <input
+                          id="owner-followup-fee"
+                          type="number"
+                          min={0}
+                          value={form.ownerFollowupFee}
+                          onChange={handleFormChange("ownerFollowupFee")}
+                          className={input}
+                          placeholder="e.g. 500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {createError && <p className="text-sm text-rose-600 dark:text-rose-400">{createError}</p>}

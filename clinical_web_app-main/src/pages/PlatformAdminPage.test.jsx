@@ -64,6 +64,33 @@ describe("PlatformAdminPage", () => {
     expect(await screen.findByText(/created\. share these credentials/i)).toBeInTheDocument();
   });
 
+  it("includes the owner's consultation fee when the hospital plan is picked", async () => {
+    post.mockResolvedValueOnce({
+      data: { clinic: { id: 3, name: "New Hospital", slug: "new-hospital" }, owner: { email: "howner@t.pk", role: "doctor", is_owner: true } },
+    });
+    render(<PlatformAdminPage />);
+    await screen.findByText("Green Valley");
+
+    fireEvent.click(screen.getByRole("button", { name: /hospital/i }));
+
+    type(screen.getByLabelText("Clinic name"), "New Hospital");
+    type(screen.getByLabelText("Owner name"), "Dr Owner");
+    type(screen.getByLabelText("Owner email"), "howner@t.pk");
+    type(screen.getByLabelText("Owner password"), "password1");
+    type(screen.getByLabelText("Consultation fee (Rs)"), "1500");
+    type(screen.getByLabelText("Follow-up fee (Rs)"), "500");
+
+    fireEvent.click(screen.getByRole("button", { name: /create clinic/i }));
+
+    await waitFor(() => expect(post).toHaveBeenCalledWith(
+      "/api/platform/clinics",
+      expect.objectContaining({
+        plan: "hospital",
+        owner: expect.objectContaining({ consultation_fee: 1500, followup_fee: 500 }),
+      })
+    ));
+  });
+
   it("toggles a clinic's status via PATCH", async () => {
     patch.mockResolvedValueOnce({ data: { clinic: { id: 1, status: "suspended" } } });
     render(<PlatformAdminPage />);

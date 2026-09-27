@@ -83,6 +83,48 @@ run("platform admin (integration)", () => {
     expect(login.status).toBe(200);
   });
 
+  it("creating a hospital-plan clinic with owner.consultation_fee seeds a doctor_fees row", async () => {
+    const hospitalSlug = `platform-hospital-${Date.now()}`;
+    const hospitalOwnerEmail = `hospital-owner-${Date.now()}@t.pk`;
+    const res = await request(app)
+      .post("/api/platform/clinics")
+      .set("Authorization", `Bearer ${asAdmin()}`)
+      .send({
+        name: "New Hospital",
+        slug: hospitalSlug,
+        plan: "hospital",
+        owner: { name: "Hospital Owner", email: hospitalOwnerEmail, password: "password1", consultation_fee: 1500, followup_fee: 500 },
+      });
+    expect(res.status).toBe(201);
+    createdClinicIds.push(res.body.clinic.id);
+
+    const login = await request(app).post("/api/auth/login").send({ email: hospitalOwnerEmail, password: "password1" });
+    const doctors = await request(app).get("/api/billing/doctors").set("Authorization", `Bearer ${login.body.accessToken}`);
+    expect(doctors.status).toBe(200);
+    const fee = doctors.body.doctors.find((d) => d.doctor_id === res.body.owner.id);
+    expect(fee.configured).toBe(true);
+    expect(Number(fee.consultation_fee)).toBe(1500);
+    expect(Number(fee.followup_fee)).toBe(500);
+  });
+
+  it("a clinic-plan clinic (billing off) ignores owner.consultation_fee — no doctor_fees row", async () => {
+    const clinicSlug = `platform-nobilling-${Date.now()}`;
+    const noBillingOwnerEmail = `nobilling-owner-${Date.now()}@t.pk`;
+    const res = await request(app)
+      .post("/api/platform/clinics")
+      .set("Authorization", `Bearer ${asAdmin()}`)
+      .send({
+        name: "New Clinic No Billing",
+        slug: clinicSlug,
+        owner: { name: "Plain Owner", email: noBillingOwnerEmail, password: "password1", consultation_fee: 1000 },
+      });
+    expect(res.status).toBe(201);
+    createdClinicIds.push(res.body.clinic.id);
+
+    const fee = await pool.query("SELECT * FROM doctor_fees WHERE doctor_id = $1", [res.body.owner.id]);
+    expect(fee.rowCount).toBe(0);
+  });
+
   it("a duplicate slug is rejected", async () => {
     const res = await request(app)
       .post("/api/platform/clinics")
