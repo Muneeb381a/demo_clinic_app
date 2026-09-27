@@ -1,9 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { fetchDashboardStats, selectDashboard } from "../store/slices/dashboardSlice";
-import { logout as logoutSession, getUser } from "../utils/auth";
-import { hasFeature } from "../utils/features";
 
 // ── Horizontal bar chart for analytics ────────────────────────────────────────
 const HBarChart = ({ data, color }) => {
@@ -81,19 +79,6 @@ const DashboardPage = () => {
 
   const handleRefresh = () => dispatch(fetchDashboardStats(true));
 
-  const handleLogout = async () => {
-    await logoutSession();
-    window.location.reload();
-  };
-
-  const [darkMode, setDarkMode] = useState(() => document.documentElement.classList.contains("dark"));
-  const toggleDark = () => {
-    const next = !darkMode;
-    setDarkMode(next);
-    document.documentElement.classList.toggle("dark", next);
-    try { localStorage.setItem("darkMode", String(next)); } catch {}
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Page Header */}
@@ -105,21 +90,6 @@ const DashboardPage = () => {
               <p className="text-teal-100 text-sm mt-1">Clinic overview at a glance</p>
             </div>
             <div className="flex gap-3 flex-wrap items-center">
-              <button
-                onClick={toggleDark}
-                title={darkMode ? "Light mode" : "Dark mode"}
-                className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors"
-              >
-                {darkMode ? (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                  </svg>
-                )}
-              </button>
               <button
                 onClick={handleRefresh}
                 disabled={loading}
@@ -138,15 +108,6 @@ const DashboardPage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 Search Patients
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 bg-white/20 hover:bg-red-500 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
-                </svg>
-                Logout
               </button>
             </div>
           </div>

@@ -7,7 +7,7 @@ import {
   fetchMedicines,
   fetchNeuroOptions,
 } from "./store/slices/appDataSlice";
-import TimeGreeting from "./components/TimeGreeting";
+import Sidebar from "./components/Sidebar";
 import PatientSearch from "./components/PatientSearch";
 import PatientConsultation from "./components/PatientConsultation";
 import PatientHistory from "./components/PatientHistoryModal";
@@ -35,26 +35,7 @@ const canManageFees = (user) => hasFeature(user, "billing") && Boolean(user?.is_
 const canIpd = (user) => hasFeature(user, "ipd");
 const canManageWards = (user) => hasFeature(user, "ipd") && Boolean(user?.is_owner);
 
-const NavLink = ({ to, children, currentPath }) => {
-  const navigate = useNavigate();
-  const active = currentPath === to;
-  return (
-    <button
-      onClick={() => navigate(to)}
-      className={`text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ${
-        active
-          ? "bg-teal-600 text-white"
-          : "text-gray-600 dark:text-gray-300 hover:text-teal-700 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/30 border border-gray-200 dark:border-gray-600"
-      }`}
-    >
-      {children}
-    </button>
-  );
-};
-
 const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
-  const location = useLocation();
-  const navigate = useNavigate();
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -64,113 +45,56 @@ const AppShell = ({ darkMode, onToggleDark, onLogout }) => {
     dispatch(fetchNeuroOptions());
   }, [dispatch]);
 
-  const isDashboard = location.pathname === "/";
   const daysLeft = trialDaysLeft(getUser());
 
   return (
-    <>
-      {daysLeft != null && (
-        <div className="bg-amber-500 text-white text-xs sm:text-sm text-center py-1.5 px-4">
-          Trial account — {daysLeft} day{daysLeft === 1 ? "" : "s"} left. Contact us to continue after that.
-        </div>
-      )}
+    <div className="lg:flex">
+      <Sidebar user={getUser()} darkMode={darkMode} onToggleDark={onToggleDark} onLogout={onLogout} />
 
-      {!isDashboard && (
-        <header className="sticky top-0 z-10 bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800">
-          <div className="max-w-7xl mx-auto px-4 py-2.5 flex justify-between items-center">
-            <button
-              onClick={() => navigate("/")}
-              className="flex items-center gap-2 group shrink-0"
-              title="Dashboard"
-            >
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
-                C
-              </div>
-              <span className="font-semibold text-gray-800 dark:text-gray-100 hidden sm:inline">
-                Clinic
-              </span>
-            </button>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <TimeGreeting locale="en-PK" timeZone="Asia/Karachi" />
-              <div className="hidden md:block w-px h-5 bg-gray-200 dark:bg-gray-700" />
-              <NavLink to="/patients" currentPath={location.pathname}>
-                Patients
-              </NavLink>
-              {canBill(getUser()) && (
-                <NavLink to="/billing" currentPath={location.pathname}>
-                  Billing
-                </NavLink>
-              )}
-              {canIpd(getUser()) && (
-                <NavLink to="/ipd" currentPath={location.pathname}>
-                  Beds
-                </NavLink>
-              )}
-              {canManageWards(getUser()) && (
-                <NavLink to="/ipd/wards" currentPath={location.pathname}>
-                  Wards
-                </NavLink>
-              )}
-              {canManageFees(getUser()) && (
-                <NavLink to="/billing/fees" currentPath={location.pathname}>
-                  Fees
-                </NavLink>
-              )}
-              {getUser()?.is_owner && (
-                <NavLink to="/staff" currentPath={location.pathname}>
-                  Staff
-                </NavLink>
-              )}
-              <button
-                onClick={onLogout}
-                className="flex items-center gap-1.5 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-1.5 rounded-lg transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
-                </svg>
-                Logout
-              </button>
-            </div>
+      <div className="flex-1 min-w-0">
+        {daysLeft != null && (
+          <div className="bg-amber-500 text-white text-xs sm:text-sm text-center py-1.5 px-4">
+            Trial account — {daysLeft} day{daysLeft === 1 ? "" : "s"} left. Contact us to continue after that.
           </div>
-        </header>
-      )}
+        )}
 
-      <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/dashboard" element={<Navigate to="/" replace />} />
-        <Route path="/patients" element={<PatientSearch />} />
-        <Route path="/patients/:patientId" element={<PatientSearch />} />
-        <Route path="/patients/new" element={<PatientSearch />} />
-        <Route
-          path="/patients/:patientId/consultation"
-          element={<RequireRole allow={isDoctor}><PatientConsultation /></RequireRole>}
-        />
-        <Route path="/patients/:patientId/history" element={<PatientHistory />} />
-        <Route
-          path="/patients/:patientId/consultations/:consultationId/edit"
-          element={<RequireRole allow={isDoctor}><EditConsultation /></RequireRole>}
-        />
-        <Route
-          path="/patients/:patientId/consultations/new"
-          element={<RequireRole allow={isDoctor}><PatientConsultation /></RequireRole>}
-        />
-        <Route
-          path="/patients/:patientId/tests/new"
-          element={<RequireRole allow={isDoctor}><AddTestForm /></RequireRole>}
-        />
-        <Route
-          path="/staff"
-          element={<RequireRole allow={isOwner}><ClinicStaffPage /></RequireRole>}
-        />
-        <Route path="/billing" element={<RequireRole allow={canBill}><BillingPage /></RequireRole>} />
-        <Route path="/billing/fees" element={<RequireRole allow={canManageFees}><FeeSettingsPage /></RequireRole>} />
-        <Route path="/ipd" element={<RequireRole allow={canIpd}><IpdPage /></RequireRole>} />
-        <Route path="/ipd/wards" element={<RequireRole allow={canManageWards}><WardSetupPage /></RequireRole>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/dashboard" element={<Navigate to="/" replace />} />
+          <Route path="/patients" element={<PatientSearch />} />
+          <Route path="/patients/:patientId" element={<PatientSearch />} />
+          <Route path="/patients/new" element={<PatientSearch />} />
+          <Route
+            path="/patients/:patientId/consultation"
+            element={<RequireRole allow={isDoctor}><PatientConsultation /></RequireRole>}
+          />
+          <Route path="/patients/:patientId/history" element={<PatientHistory />} />
+          <Route
+            path="/patients/:patientId/consultations/:consultationId/edit"
+            element={<RequireRole allow={isDoctor}><EditConsultation /></RequireRole>}
+          />
+          <Route
+            path="/patients/:patientId/consultations/new"
+            element={<RequireRole allow={isDoctor}><PatientConsultation /></RequireRole>}
+          />
+          <Route
+            path="/patients/:patientId/tests/new"
+            element={<RequireRole allow={isDoctor}><AddTestForm /></RequireRole>}
+          />
+          <Route
+            path="/staff"
+            element={<RequireRole allow={isOwner}><ClinicStaffPage /></RequireRole>}
+          />
+          <Route path="/billing" element={<RequireRole allow={canBill}><BillingPage /></RequireRole>} />
+          <Route path="/billing/fees" element={<RequireRole allow={canManageFees}><FeeSettingsPage /></RequireRole>} />
+          <Route path="/ipd" element={<RequireRole allow={canIpd}><IpdPage /></RequireRole>} />
+          <Route path="/ipd/wards" element={<RequireRole allow={canManageWards}><WardSetupPage /></RequireRole>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
 
       {hasFeature(getUser(), "chatbot") && <FloatingChatbot />}
-    </>
+    </div>
   );
 };
 
